@@ -25,4 +25,4 @@ CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "db/chroma")
 # Настройки ИИ
 DEFAULT_MODEL = "gpt-4o-mini"
 MAX_RESULTS = 10  # Максимальное количество документов для контекста
-MAX_TOKENS = 1000  # Максимальное количество токенов в ответе 
+MAX_TOKENS = 2000  # Максимальное количество токенов в ответе 

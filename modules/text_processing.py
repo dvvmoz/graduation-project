@@ -120,4 +120,168 @@ def clean_text(text: str) -> str:
     # Удаляем пробелы в начале и конце
     cleaned = cleaned.strip()
     
-    return cleaned 
+    return cleaned
+
+
+class TextProcessor:
+    """
+    Класс для обработки текста и извлечения данных из PDF-файлов.
+    """
+    
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200):
+        """
+        Инициализация процессора текста.
+        
+        Args:
+            chunk_size: Размер чанка в символах
+            chunk_overlap: Перекрытие между чанками в символах
+        """
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        logger.info(f"Инициализирован TextProcessor с chunk_size={chunk_size}, chunk_overlap={chunk_overlap}")
+    
+    def extract_text_from_pdf(self, pdf_path: str) -> str:
+        """
+        Извлекает весь текст из PDF-файла.
+        
+        Args:
+            pdf_path: Путь к PDF-файлу
+            
+        Returns:
+            Извлеченный текст из всех страниц PDF
+        """
+        return extract_text_from_pdf(pdf_path)
+    
+    def split_text(self, text: str) -> list[str]:
+        """
+        Разделяет текст на чанки для индексации.
+        
+        Args:
+            text: Исходный текст
+            
+        Returns:
+            Список текстовых чанков
+        """
+        if not text or not text.strip():
+            return []
+        
+        # Сначала пробуем структурированное разделение
+        structured_blocks = split_text_into_structure(text)
+        
+        # Если структурированное разделение дало результат, используем его
+        if structured_blocks and len(structured_blocks) > 1:
+            # Объединяем мелкие блоки в чанки нужного размера
+            chunks = []
+            current_chunk = ""
+            
+            for block in structured_blocks:
+                # Если добавление блока не превысит размер чанка
+                if len(current_chunk) + len(block) + 1 <= self.chunk_size:
+                    if current_chunk:
+                        current_chunk += "\n\n" + block
+                    else:
+                        current_chunk = block
+                else:
+                    # Сохраняем текущий чанк
+                    if current_chunk:
+                        chunks.append(current_chunk.strip())
+                    
+                    # Начинаем новый чанк
+                    if len(block) <= self.chunk_size:
+                        current_chunk = block
+                    else:
+                        # Если блок слишком большой, разделяем его
+                        chunks.extend(self._split_large_block(block))
+                        current_chunk = ""
+            
+            # Добавляем последний чанк
+            if current_chunk:
+                chunks.append(current_chunk.strip())
+            
+            return chunks
+        
+        # Если структурированное разделение не сработало, используем простое разделение
+        return self._simple_split(text)
+    
+    def _split_large_block(self, block: str) -> list[str]:
+        """
+        Разделяет большой блок на чанки.
+        
+        Args:
+            block: Блок текста для разделения
+            
+        Returns:
+            Список чанков
+        """
+        chunks = []
+        start = 0
+        
+        while start < len(block):
+            end = start + self.chunk_size
+            
+            # Если это не последний чанк, ищем подходящее место для разделения
+            if end < len(block):
+                # Ищем ближайший перевод строки или точку
+                for i in range(end, max(start + self.chunk_size - 100, start), -1):
+                    if block[i] in '\n.!?':
+                        end = i + 1
+                        break
+            
+            chunk = block[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
+            
+            # Учитываем перекрытие
+            start = end - self.chunk_overlap
+            if start < 0:
+                start = end
+        
+        return chunks
+    
+    def _simple_split(self, text: str) -> list[str]:
+        """
+        Простое разделение текста на чанки фиксированного размера.
+        
+        Args:
+            text: Исходный текст
+            
+        Returns:
+            Список чанков
+        """
+        chunks = []
+        start = 0
+        
+        while start < len(text):
+            end = start + self.chunk_size
+            
+            # Если это не последний чанк, ищем подходящее место для разделения
+            if end < len(text):
+                # Ищем ближайший пробел или перевод строки
+                for i in range(end, max(start + self.chunk_size - 100, start), -1):
+                    if text[i] in ' \n\t':
+                        end = i
+                        break
+            
+            chunk = text[start:end].strip()
+            if chunk:
+                chunks.append(chunk)
+            
+            # Учитываем перекрытие
+            start = end - self.chunk_overlap
+            if start < 0:
+                start = end
+        
+        logger.info(f"Разделено на {len(chunks)} чанков")
+        return chunks
+    
+    def clean_text(self, text: str) -> str:
+        """
+        Очищает текст от лишних пробелов и символов.
+        
+        Args:
+            text: Исходный текст
+            
+        Returns:
+            Очищенный текст
+        """
+        return clean_text(text) 

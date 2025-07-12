@@ -1,0 +1,18 @@
+{
+  "last_scraping_date": "12.07.2025",
+  "last_scraping_time": "14:30",
+  "last_scraped_sites": [
+    "pravo.by"
+  ],
+  "total_pages_scraped": 5,
+  "total_chunks_added": 102,
+  "scraping_history": [
+    {
+      "date": "12.07.2025",
+      "time": "14:30",
+      "site": "pravo.by",
+      "pages_scraped": 5,
+      "chunks_added": 102
+    }
+  ]
+} 
