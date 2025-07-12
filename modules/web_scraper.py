@@ -343,6 +343,13 @@ class WebScraper:
                 chunks = self.text_processor.split_text(page_data['content'])
                 
                 for i, chunk in enumerate(chunks):
+                    # Создаем уникальный ID для чанка из динамического поиска
+                    # Добавляем префикс "dynamic_" и timestamp для уникальности
+                    from datetime import datetime
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    url_hash = hash(page_data['url']) % 1000000  # Получаем короткий хеш
+                    doc_id = f"dynamic_{timestamp}_{url_hash}_chunk_{i:03d}"
+                    
                     # Создаем метаданные для чанка
                     metadata = {
                         'source': 'web_scraper',
@@ -351,17 +358,22 @@ class WebScraper:
                         'domain': page_data['domain'],
                         'chunk_index': i,
                         'total_chunks': len(chunks),
-                        'content_type': 'legal_website'
+                        'content_type': 'legal_website',
+                        'source_type': 'pravo.by_dynamic',
+                        'scraped_at': timestamp
                     }
                     
-                    # Добавляем в базу знаний
-                    self.knowledge_base.add_document(chunk, metadata)
-                    added_count += 1
+                    # Добавляем в базу знаний с правильным порядком параметров
+                    if self.knowledge_base.add_document(doc_id, chunk, metadata):
+                        added_count += 1
+                        logger.debug(f"Добавлен динамический чанк {doc_id} из {page_data['url']}")
+                    else:
+                        logger.warning(f"Не удалось добавить динамический чанк {doc_id}")
                     
             except Exception as e:
                 logger.error(f"Ошибка при добавлении страницы {page_data['url']}: {e}")
         
-        logger.info(f"Добавлено в базу знаний: {added_count} чанков")
+        logger.info(f"💾 WEB_SCRAPER: Добавлено в базу знаний: {added_count} чанков из {len(pages_data)} страниц")
         return added_count
     
     def scrape_and_add(self, start_url: str, max_pages: int = None) -> Dict:

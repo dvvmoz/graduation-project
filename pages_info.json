@@ -1,0 +1,173 @@
+{
+  "pages": {
+    "https://pravo.by/gosudarstvo-i-pravo/administratsiya-prezidenta-respubliki-belarus/": {
+      "content_hash": "fe1075de2a1b32f2b54b67d86994b68b",
+      "title": "Администрация Президента Республики Беларусь",
+      "last_check": "2025-07-12T15:23:07.893852",
+      "last_scraped": "2025-07-12T15:23:07.893852",
+      "content_length": 8257
+    },
+    "https://pravo.by/pravovaya-informatsiya/pravovaya-informatizatsiya-/": {
+      "content_hash": "2d7ee5df9eae911f31b5058bd2a59039",
+      "title": "Государственная система правовой информации",
+      "last_check": "2025-07-12T15:23:09.348269",
+      "last_scraped": "2025-07-12T15:23:09.348269",
+      "content_length": 3792
+    },
+    "https://pravo.by/pravovaya-informatsiya/dostup-k-pravovoy-informatsii/": {
+      "content_hash": "85e872f52f4f35a6130bd24a4a1bd2c9",
+      "title": "Распространение правовой информации",
+      "last_check": "2025-07-12T15:23:11.147686",
+      "last_scraped": "2025-07-12T15:23:11.147686",
+      "content_length": 5126
+    },
+    "https://pravo.by/novosti/analitika/2025/june/89391/": {
+      "content_hash": "89efc46a60d11d4459c325aa6471b02a",
+      "title": "Заместитель Председателя Верховного Суда об изменениях гражданского законодательства",
+      "last_check": "2025-07-12T15:23:13.017591",
+      "last_scraped": "2025-07-12T15:23:13.017591",
+      "content_length": 128271
+    },
+    "https://pravo.by/natsionalnyy-reestr/novye-postupleniya/": {
+      "content_hash": "80bcf2db8b2573d9b3b02ee38d267f07",
+      "title": "Новые правовые акты, зарегистрированные в Национальном реестре правовых актов",
+      "last_check": "2025-07-12T15:23:17.108077",
+      "last_scraped": "2025-07-12T15:23:17.108077",
+      "content_length": 6753
+    },
+    "https://pravo.by/novosti/analitika/2025/june/89043/": {
+      "content_hash": "c87a3a77c54a51b45bd879110aced56e",
+      "title": "Деятельность в сфере игорного бизнеса. Комментарий к Указу № 226",
+      "last_check": "2025-07-12T15:23:18.802363",
+      "last_scraped": "2025-07-12T15:23:18.802363",
+      "content_length": 76251
+    },
+    "https://pravo.by/natsionalnyy-reestr/podpisatsya-na-rassylku/": {
+      "content_hash": "bf9ffecfc18958a2c78645ca30e59aba",
+      "title": "Подписки на рассылки",
+      "last_check": "2025-07-12T15:23:20.245640",
+      "last_scraped": "2025-07-12T15:23:20.245640",
+      "content_length": 1817
+    },
+    "https://pravo.by/pravovaya-informatsiya/": {
+      "content_hash": "326405ba41ffe30fadaac5ce6510ceda",
+      "title": "Конституция Республики Беларусь",
+      "last_check": "2025-07-12T15:23:22.433547",
+      "last_scraped": "2025-07-12T15:23:22.433547",
+      "content_length": 91120
+    },
+    "https://pravo.by/pravovaya-informatsiya/pravovye-akty-po-temam/": {
+      "content_hash": "789f2a85df1d1e78c726df81169ca48d",
+      "title": "Общие положения",
+      "last_check": "2025-07-12T15:23:24.242889",
+      "last_scraped": "2025-07-12T15:23:24.242889",
+      "content_length": 1730
+    },
+    "https://pravo.by/gosudarstvo-i-pravo/prokuratura-respubliki-belarus/": {
+      "content_hash": "df1eb1c67f011567e58104ddbfb423e4",
+      "title": "Прокуратура Республики Беларусь",
+      "last_check": "2025-07-12T15:23:25.911485",
+      "last_scraped": "2025-07-12T15:23:25.911485",
+      "content_length": 3812
+    },
+    "https://pravo.by/gosudarstvo-i-pravo/gosudarstvennaya-simvolika/": {
+      "content_hash": "0502e6b4bf6fcab42a8583503ee4e954",
+      "title": "Государственные символы",
+      "last_check": "2025-07-12T15:23:27.702667",
+      "last_scraped": "2025-07-12T15:23:27.702667",
+      "content_length": 4655
+    },
+    "https://pravo.by/pravovaya-informatsiya/edinyy-pravovoy-klassifikator/": {
+      "content_hash": "3006f1a55ab4d7c277b5d04e41aac6b2",
+      "title": "Единый правовой классификатор Республики Беларусь",
+      "last_check": "2025-07-12T15:23:29.216808",
+      "last_scraped": "2025-07-12T15:23:29.216808",
+      "content_length": 1720
+    },
+    "https://pravo.by/bank-dannykh-proektov-zakonov-respubliki-belarus/": {
+      "content_hash": "b8a2a19991fd0451cb3542a3565234ed",
+      "title": "Поиск в банке данных проектов законов Республики Беларусь",
+      "last_check": "2025-07-12T15:23:31.320249",
+      "last_scraped": "2025-07-12T15:23:31.320249",
+      "content_length": 918
+    },
+    "https://pravo.by/novosti/novosti-pravo-by/2025/july/89392/": {
+      "content_hash": "0134cacef2513026202c461095969bce",
+      "title": "Минприроды предлагает обсудить изменения в постановление «О локальном мониторинге окружающей среды»",
+      "last_check": "2025-07-12T15:23:33.061472",
+      "last_scraped": "2025-07-12T15:23:33.061472",
+      "content_length": 18920
+    },
+    "https://pravo.by/novosti/analitika/2025/july/89350/": {
+      "content_hash": "298df5cd0a3d0fa006040d5305f8b414",
+      "title": "Требования законодательства к удалению, пересадке объектов растительного мира",
+      "last_check": "2025-07-12T15:23:34.911679",
+      "last_scraped": "2025-07-12T15:23:34.911679",
+      "content_length": 113727
+    },
+    "https://pravo.by/ofitsialnoe-opublikovanie/poisk/": {
+      "content_hash": "8eaebf30068410d84347c5fcbdd4290a",
+      "title": "Поиск актов в Национальном реестре правовых актов",
+      "last_check": "2025-07-12T15:23:36.749202",
+      "last_scraped": "2025-07-12T15:23:36.749202",
+      "content_length": 2496
+    },
+    "https://pravo.by/novosti/obshchestvenno-politicheskie-i-v-oblasti-prava/2025/july/89432/": {
+      "content_hash": "3ddabbd7cb7fd7a69d59933eee6ca5d7",
+      "title": "Государственный секретарь Союзного государства: стратегию формирования единого информпространства мы должны представить до конца года",
+      "last_check": "2025-07-12T15:23:38.527482",
+      "last_scraped": "2025-07-12T15:23:38.527482",
+      "content_length": 18321
+    },
+    "https://pravo.by/gosudarstvo-i-pravo/": {
+      "content_hash": "c28125bac6531809992aca0023fabb2d",
+      "title": "Общие сведения об организации государственной власти в Республике Беларусь и о национальной правовой системе",
+      "last_check": "2025-07-12T15:23:40.317051",
+      "last_scraped": "2025-07-12T15:23:40.317051",
+      "content_length": 2549
+    },
+    "https://pravo.by/gosudarstvo-i-pravo/parlament-natsionalnoe-sobranie-respubliki-belarus/": {
+      "content_hash": "d9e5f890804b389de6c3fdfcee673fb7",
+      "title": "Парламент – Национальное собрание Республики Беларусь",
+      "last_check": "2025-07-12T15:23:41.916759",
+      "last_scraped": "2025-07-12T15:23:41.916759",
+      "content_length": 12181
+    },
+    "https://pravo.by/": {
+      "content_hash": "f2eb2adfac3c22c5332f8647c7817c9b",
+      "title": "Национальный правовой Интернет-портал Республики Беларусь",
+      "last_check": "2025-07-12T15:23:44.260437",
+      "last_scraped": "2025-07-12T15:23:44.260437",
+      "content_length": 4546
+    }
+  },
+  "site_maps": {
+    "pravo.by": {
+      "urls": [
+        "https://pravo.by/gosudarstvo-i-pravo/administratsiya-prezidenta-respubliki-belarus/",
+        "https://pravo.by/pravovaya-informatsiya/pravovaya-informatizatsiya-/",
+        "https://pravo.by/pravovaya-informatsiya/dostup-k-pravovoy-informatsii/",
+        "https://pravo.by/novosti/analitika/2025/june/89391/",
+        "https://pravo.by/natsionalnyy-reestr/novye-postupleniya/",
+        "https://pravo.by/novosti/analitika/2025/june/89043/",
+        "https://pravo.by/natsionalnyy-reestr/podpisatsya-na-rassylku/",
+        "https://pravo.by/pravovaya-informatsiya/",
+        "https://pravo.by/pravovaya-informatsiya/pravovye-akty-po-temam/",
+        "https://pravo.by/gosudarstvo-i-pravo/prokuratura-respubliki-belarus/",
+        "https://pravo.by/gosudarstvo-i-pravo/gosudarstvennaya-simvolika/",
+        "https://pravo.by/pravovaya-informatsiya/edinyy-pravovoy-klassifikator/",
+        "https://pravo.by/bank-dannykh-proektov-zakonov-respubliki-belarus/",
+        "https://pravo.by/novosti/novosti-pravo-by/2025/july/89392/",
+        "https://pravo.by/novosti/analitika/2025/july/89350/",
+        "https://pravo.by/ofitsialnoe-opublikovanie/poisk/",
+        "https://pravo.by/novosti/obshchestvenno-politicheskie-i-v-oblasti-prava/2025/july/89432/",
+        "https://pravo.by/gosudarstvo-i-pravo/",
+        "https://pravo.by/gosudarstvo-i-pravo/parlament-natsionalnoe-sobranie-respubliki-belarus/",
+        "https://pravo.by/"
+      ],
+      "last_scan": "2025-07-12T15:23:07.444092",
+      "total_urls": 20
+    }
+  },
+  "last_full_scan": null
+}

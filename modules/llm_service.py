@@ -2,7 +2,7 @@
 Модуль для взаимодействия с языковыми моделями (LLM).
 """
 import logging
-from typing import List
+from typing import List, Dict, Any
 from datetime import datetime
 from openai import OpenAI
 from config import OPENAI_API_KEY, DEFAULT_MODEL, MAX_TOKENS
@@ -92,7 +92,7 @@ class LLMService:
             self.client = OpenAI(api_key=OPENAI_API_KEY)
         return self.client
     
-    def get_answer(self, user_question: str, context_docs: List[str]) -> str:
+    def get_answer(self, user_question: str, context_docs: List[Dict[str, Any]]) -> str:
         """
         Генерирует ответ на основе вопроса пользователя и контекста.
         
@@ -126,8 +126,9 @@ class LLMService:
             
             # Логируем статистику использования токенов
             usage = response.usage
-            logger.info(f"Использовано токенов: {usage.total_tokens} "
+            logger.info(f"🤖 OPENAI: Использовано токенов: {usage.total_tokens} "
                        f"(промпт: {usage.prompt_tokens}, ответ: {usage.completion_tokens})")
+            logger.info(f"📝 OPENAI: Длина ответа: {len(answer)} символов")
             
             return answer
             
@@ -135,12 +136,12 @@ class LLMService:
             logger.error(f"Ошибка при генерации ответа: {e}")
             return self._get_error_response()
     
-    def _format_context(self, docs: List[str]) -> str:
+    def _format_context(self, docs: List[Dict[str, Any]]) -> str:
         """
         Форматирует документы в контекст для промпта.
         
         Args:
-            docs: Список документов
+            docs: Список документов с метаданными
             
         Returns:
             Отформатированный контекст
@@ -150,7 +151,10 @@ class LLMService:
         
         formatted_docs = []
         for i, doc in enumerate(docs, 1):
-            formatted_docs.append(f"Документ {i}:\n{doc}")
+            content = doc.get('content', '')
+            metadata = doc.get('metadata', {})
+            title = metadata.get('title', f'Документ {i}')
+            formatted_docs.append(f"Документ {i} ({title}):\n{content}")
         
         return "\n\n".join(formatted_docs)
     
@@ -239,7 +243,7 @@ def get_llm_service() -> LLMService:
         _llm_service = LLMService()
     return _llm_service
 
-def get_answer(user_question: str, context_docs: List[str]) -> str:
+def get_answer(user_question: str, context_docs: List[Dict[str, Any]]) -> str:
     """
     Удобная функция для получения ответа.
     
