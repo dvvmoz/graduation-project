@@ -108,7 +108,7 @@ class LLMService:
             context = self._format_context(context_docs)
             
             # Формируем полный промпт для пользователя
-            user_prompt = self._create_user_prompt(user_question, context)
+            user_prompt = self._create_user_prompt(user_question, context, context_docs)
             
             # Отправляем запрос к OpenAI
             response = self._get_client().chat.completions.create(
@@ -158,19 +158,111 @@ class LLMService:
         
         return "\n\n".join(formatted_docs)
     
-    def _create_user_prompt(self, question: str, context: str) -> str:
+    def _analyze_document_dates(self, context_docs: List[Dict[str, Any]]) -> str:
+        """
+        Анализирует даты документов и возвращает информацию об актуальности.
+        
+        Args:
+            context_docs: Список документов с метаданными
+            
+        Returns:
+            Строка с информацией об актуальности данных
+        """
+        if not context_docs:
+            return get_scraping_summary()
+        
+        from datetime import datetime, timezone, timedelta
+        
+        dates_with_time = []
+        source_types = set()
+        
+        # Часовой пояс МСК (UTC+3)
+        msk_tz = timezone(timedelta(hours=3))
+        
+        for doc in context_docs:
+            metadata = doc.get('metadata', {})
+            source_types.add(metadata.get('source_type', 'unknown'))
+            
+            # Проверяем различные типы дат
+            scraped_at = metadata.get('scraped_at')
+            added_date = metadata.get('added_date')
+            
+            if scraped_at:
+                try:
+                    # Формат: 20250712_170540
+                    if len(scraped_at) >= 15:  # Есть время
+                        date_obj = datetime.strptime(scraped_at, "%Y%m%d_%H%M%S")
+                    else:  # Только дата
+                        date_str = scraped_at[:8]
+                        date_obj = datetime.strptime(date_str, "%Y%m%d")
+                    
+                    # Предполагаем, что время уже в МСК (pravo.by - белорусский сайт)
+                    date_obj = date_obj.replace(tzinfo=msk_tz)
+                    dates_with_time.append(date_obj)
+                except:
+                    pass
+            elif added_date:
+                try:
+                    # Формат: 2025-07-12T17:05:40.373643
+                    date_obj = datetime.fromisoformat(added_date.replace('Z', '+00:00'))
+                    # Конвертируем в МСК
+                    date_obj = date_obj.astimezone(msk_tz)
+                    dates_with_time.append(date_obj)
+                except:
+                    pass
+        
+        if not dates_with_time:
+            return get_scraping_summary()
+        
+        # Находим самую старую и самую новую дату
+        min_date = min(dates_with_time)
+        max_date = max(dates_with_time)
+        
+        # Форматируем даты для вывода с временем МСК
+        min_date_str = min_date.strftime("%d.%m.%Y %H:%M МСК")
+        max_date_str = max_date.strftime("%d.%m.%Y %H:%M МСК")
+        
+        # Определяем тип источников
+        if 'pravo.by_dynamic' in source_types:
+            source_info = "источник: pravo.by"
+        elif len(source_types) == 1 and 'unknown' not in source_types:
+            source_info = f"источник: {list(source_types)[0]}"
+        else:
+            source_info = "смешанные источники"
+        
+        # Формируем итоговую строку
+        if min_date.date() == max_date.date():
+            # Если та же дата, показываем диапазон времени
+            if min_date == max_date:
+                return f"{min_date_str} ({source_info})"
+            else:
+                date_str = min_date.strftime("%d.%m.%Y")
+                # Показываем диапазон времени только если времена разные
+                if min_date.time() == max_date.time():
+                    return f"{date_str} {min_date.strftime('%H:%M')} МСК ({source_info})"
+                else:
+                    time_range = f"{min_date.strftime('%H:%M')}-{max_date.strftime('%H:%M')} МСК"
+                    return f"{date_str} {time_range} ({source_info})"
+        else:
+            return f"{min_date_str} - {max_date_str} ({source_info})"
+
+    def _create_user_prompt(self, question: str, context: str, context_docs: List[Dict[str, Any]] = None) -> str:
         """
         Создает промпт для пользователя.
         
         Args:
             question: Вопрос пользователя
             context: Контекст из базы знаний
+            context_docs: Документы для анализа дат (опционально)
             
         Returns:
             Сформированный промпт
         """
-        # Получаем информацию о парсинге для включения в ответ
-        scraping_info = get_scraping_summary()
+        # Получаем информацию об актуальности на основе реальных документов
+        if context_docs:
+            date_info = self._analyze_document_dates(context_docs)
+        else:
+            date_info = get_scraping_summary()
         
         return f"""
 Вопрос пользователя: "{question}"
@@ -199,7 +291,7 @@ class LLMService:
    - Укажите возможные риски применения советов
 
 ВАЖНО: Обязательно завершите свой ответ следующим дисклеймером:
-"⚖️ Ответ соответствует законодательству РБ на дату: {scraping_info}. Не заменяет персональную консультацию (ст. 1014 ГК РБ)."
+"⚖️ Ответ соответствует законодательству РБ на дату: {date_info}. Не заменяет персональную консультацию (ст. 1014 ГК РБ)."
 """
     
     def _get_error_response(self) -> str:
