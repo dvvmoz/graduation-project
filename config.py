@@ -17,6 +17,13 @@ def check_env_vars():
     
     print("✅ Конфигурация загружена успешно")
 
+def load_config():
+    """Загружает конфигурацию и проверяет переменные окружения."""
+    # Переменные уже загружены в начале модуля
+    # Просто проверяем их наличие
+    check_env_vars()
+    return True
+
 # Переменные окружения
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")

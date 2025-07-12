@@ -27,7 +27,7 @@ def extract_text_from_pdf(pdf_path: str) -> str:
         
         for page_num in range(len(doc)):
             page = doc[page_num]
-            page_text = page.get_text()
+            page_text = page.get_text()  # type: ignore
             full_text += page_text + "\n\n"
             
         doc.close()
@@ -41,15 +41,79 @@ def extract_text_from_pdf(pdf_path: str) -> str:
         logger.error(f"Ошибка при чтении PDF файла {pdf_path}: {e}")
         raise
 
+def recursive_semantic_splitter(text: str, separators: list[str], max_chunk_size: int) -> list[str]:
+    """
+    Рекурсивно разделяет текст на семантические части, используя иерархию разделителей.
+
+    Args:
+        text (str): Исходный текст для разделения.
+        separators (list[str]): Список регулярных выражений для разделителей,
+                                отсортированных от самого крупного (например, "Глава")
+                                до самого мелкого (например, абзац).
+        max_chunk_size (int): Максимальный размер чанка. Если чанк после всех
+                              разделений все еще больше, он будет разделен по размеру.
+
+    Returns:
+        list[str]: Список текстовых чанков.
+    """
+    final_chunks = []
+
+    # 1. Если текст уже достаточно мал, возвращаем его как есть.
+    if len(text) <= max_chunk_size:
+        if text.strip(): # Убедимся, что не добавляем пустые строки
+             final_chunks.append(text.strip())
+        return final_chunks
+
+    # 2. Если разделители закончились, а текст все еще большой, делим его по размеру.
+    if not separators:
+        for i in range(0, len(text), max_chunk_size):
+            chunk = text[i:i + max_chunk_size]
+            if chunk.strip():
+                final_chunks.append(chunk.strip())
+        return final_chunks
+
+    # 3. Рекурсивный шаг: пытаемся разделить текст текущим разделителем.
+    current_separator = separators[0]
+    remaining_separators = separators[1:]
+    
+    # Используем re.split с lookbehind, чтобы сохранить разделитель в начале строки
+    try:
+        # (?=...) - это positive lookahead, он находит совпадение, но не включает его в результат разделения
+        # Это позволяет сохранить заголовок ("Глава 1") в начале следующего чанка.
+        chunks = re.split(f'(?={current_separator})', text)
+    except re.error as e:
+        logger.error(f"Ошибка в регулярном выражении '{current_separator}': {e}")
+        # В случае ошибки просто переходим к следующему разделителю
+        return recursive_semantic_splitter(text, remaining_separators, max_chunk_size)
+
+    for chunk in chunks:
+        if not chunk.strip():
+            continue
+        
+        # Если чанк после разделения все еще слишком большой, рекурсивно вызываем функцию
+        # для этого чанка с оставшимися разделителями.
+        if len(chunk) > max_chunk_size:
+            finer_chunks = recursive_semantic_splitter(chunk, remaining_separators, max_chunk_size)
+            final_chunks.extend(finer_chunks)
+        else:
+            final_chunks.append(chunk.strip())
+            
+    return final_chunks
+
 def split_text_into_structure(text: str) -> list[str]:
     """
-    Разделяет текст на абзацы, пункты и подпункты.
+    Разделяет текст на семантические части с использованием рекурсивного алгоритма.
     
-    Распознает следующие маркеры:
-    - Нумерованные пункты: 1., 2., 10.
-    - Многоуровневые пункты: 1.1., 1.2.3.
+    Распознает следующие структурные элементы:
+    - Главы: Глава 1., Глава 2.
+    - Статьи: Статья 1., Статья 2.
+    - Разделы: Раздел 1., Раздел 2.
+    - Параграфы: § 1., § 2.
+    - Пункты: 1., 2., 10.
+    - Подпункты: 1.1., 1.2.3.
     - Буквенные пункты: а), б), в)
-    - Маркированные списки: •, -, *
+    - Абзацы (пустые строки)
+    - Нумерованные списки: 1), 2)
     
     Args:
         text: Исходный текст для разделения
@@ -60,46 +124,42 @@ def split_text_into_structure(text: str) -> list[str]:
     if not text or not text.strip():
         return []
     
-    # Паттерн для поиска различных типов маркеров в начале строки
-    pattern = r"(?m)^\s*(\d+\.[\d\.]*\s+|[а-яА-Я]\)\s+|[a-zA-Z]\)\s+|[•\-\*]\s+)"
+    # Определяем иерархию разделителей для юридических документов
+    # Используем регулярные выражения для большей гибкости
+    separators = [
+        r"Глава\s*\d+\.",           # Глава 1.
+        r"Раздел\s*\d+\.",          # Раздел 1.
+        r"Статья\s*\d+\.",          # Статья 1.
+        r"§\s*\d+\.",               # § 1.
+        r"^\s*\d+\.",               # 1. (нумерованные пункты)
+        r"^\s*\d+\.\d+\.",          # 1.1. (подпункты)
+        r"^\s*[а-яА-Я]\)\s+",       # а) (буквенные пункты)
+        r"\n\s*\n",                 # Разделитель абзацев (пустая строка)
+        r"^\s*\d+\)\s+",            # 1) (нумерованные списки)
+    ]
     
-    # Разделяем текст по маркерам, сохраняя маркеры
-    parts = re.split(pattern, text)
+    # Устанавливаем максимальный размер чанка (можно настроить)
+    max_chunk_size = 1000
     
-    structured_blocks = []
-    
-    # Первый элемент - текст до первого маркера
-    if parts[0].strip():
-        # Разделяем на абзацы по двойным переводам строки
-        paragraphs = [p.strip() for p in re.split(r'\n\s*\n', parts[0]) if p.strip()]
-        structured_blocks.extend(paragraphs)
-    
-    # Обрабатываем остальные части (маркер + текст)
-    i = 1
-    while i < len(parts):
-        if i + 1 < len(parts):
-            marker = parts[i].strip()
-            content = parts[i + 1].strip()
-            
-            if marker and content:
-                # Очищаем текст от лишних переводов строк
-                cleaned_content = re.sub(r'\n+', ' ', content)
-                full_item = f"{marker} {cleaned_content}"
-                structured_blocks.append(full_item)
-            
-            i += 2
-        else:
-            i += 1
-    
-    # Фильтруем пустые блоки и слишком короткие
-    filtered_blocks = []
-    for block in structured_blocks:
-        clean_block = block.strip()
-        if clean_block and len(clean_block) > 10:  # Минимальная длина блока
-            filtered_blocks.append(clean_block)
-    
-    logger.info(f"Разделено на {len(filtered_blocks)} структурированных блоков")
-    return filtered_blocks
+    try:
+        chunks = recursive_semantic_splitter(text, separators, max_chunk_size)
+        
+        # Фильтруем пустые блоки и слишком короткие
+        filtered_blocks = []
+        for block in chunks:
+            clean_block = block.strip()
+            if clean_block and len(clean_block) > 10:  # Минимальная длина блока
+                filtered_blocks.append(clean_block)
+        
+        logger.info(f"Разделено на {len(filtered_blocks)} структурированных блоков")
+        return filtered_blocks
+        
+    except Exception as e:
+        logger.error(f"Ошибка при семантическом разделении: {e}")
+        # В случае ошибки возвращаем простое разделение на абзацы
+        paragraphs = [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip() and len(p.strip()) > 10]
+        logger.info(f"Использовано простое разделение на {len(paragraphs)} абзацев")
+        return paragraphs
 
 def clean_text(text: str) -> str:
     """
