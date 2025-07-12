@@ -83,6 +83,14 @@
             cx: 50;
             cy: 50;
         }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -453,23 +461,55 @@
         }
 
         function switchTab(tabName) {
-            // Скрыть все табы
-            document.querySelectorAll('.tab-content').forEach(tab => {
+            console.log('=== ПЕРЕКЛЮЧЕНИЕ ВКЛАДКИ ===');
+            console.log('Целевая вкладка:', tabName);
+            
+            // Получаем все элементы
+            const allTabs = document.querySelectorAll('.tab-content');
+            const allNavLinks = document.querySelectorAll('.nav-link');
+            const targetTab = document.getElementById(tabName);
+            const targetNavLink = document.querySelector(`[data-tab="${tabName}"]`);
+            
+            console.log('Найдено вкладок:', allTabs.length);
+            console.log('Найдено ссылок навигации:', allNavLinks.length);
+            console.log('Целевая вкладка найдена:', !!targetTab);
+            console.log('Целевая ссылка найдена:', !!targetNavLink);
+            
+            // Скрываем все вкладки
+            allTabs.forEach((tab, index) => {
+                if (tab.classList.contains('active')) {
+                    console.log(`Скрываем активную вкладку: ${tab.id}`);
+                }
                 tab.classList.remove('active');
             });
             
-            // Убрать активный класс с навигации
-            document.querySelectorAll('.nav-link').forEach(link => {
+            // Убираем активный класс со всех ссылок
+            allNavLinks.forEach(link => {
                 link.classList.remove('active');
             });
             
-            // Показать выбранный таб
-            document.getElementById(tabName).classList.add('active');
-            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            // Показываем целевую вкладку
+            if (targetTab) {
+                targetTab.classList.add('active');
+                console.log(`Показана вкладка: ${tabName}`);
+            } else {
+                console.error(`Вкладка с ID "${tabName}" не найдена!`);
+                return;
+            }
             
-            currentTab = tabName;
+            // Активируем целевую ссылку
+            if (targetNavLink) {
+                targetNavLink.classList.add('active');
+                console.log(`Активирована ссылка для: ${tabName}`);
+            } else {
+                console.error(`Ссылка с data-tab="${tabName}" не найдена!`);
+            }
             
-            // Загрузить данные для таба
+            // Сохраняем текущую вкладку
+            window.currentTab = tabName;
+            
+            // Загружаем данные для специальных вкладок
+            console.log('Загружаем данные для вкладки:', tabName);
             switch(tabName) {
                 case 'stats':
                     loadDetailedStats();
@@ -480,7 +520,11 @@
                 case 'processes':
                     refreshProcesses();
                     break;
+                default:
+                    console.log('Дополнительная загрузка данных не требуется');
             }
+            
+            console.log('=== ПЕРЕКЛЮЧЕНИЕ ЗАВЕРШЕНО ===');
         }
 
         function refreshDashboard() {
@@ -602,6 +646,11 @@
                 args: args
             };
 
+            // Специальное уведомление для demo_bot
+            if (command === 'demo_bot') {
+                showNotification('🚀 Запуск демо-бота в отдельном терминале...', 'info');
+            }
+
             fetch('/api/execute', {
                 method: 'POST',
                 headers: {
@@ -614,7 +663,12 @@
                 if (data.error) {
                     showNotification('Ошибка: ' + data.error, 'error');
                 } else {
-                    showNotification(data.message, 'success');
+                    // Специальное сообщение для demo_bot
+                    if (command === 'demo_bot') {
+                        showNotification('🎉 ' + data.message + '<br><br>💡 <strong>Инструкции:</strong><br>• Откроется новое окно терминала<br>• Следуйте инструкциям на экране<br>• Задавайте вопросы для тестирования поиска', 'success');
+                    } else {
+                        showNotification(data.message, 'success');
+                    }
                     refreshProcesses();
                 }
             })
@@ -716,7 +770,7 @@
             return colors[status] || 'secondary';
         }
 
-        function showNotification(message, type = 'info') {
+        function showNotification(message, type = 'info', duration = 5000) {
             const colors = {
                 'success': 'alert-success',
                 'error': 'alert-danger',
@@ -726,7 +780,7 @@
             
             const notification = document.createElement('div');
             notification.className = `alert ${colors[type]} alert-dismissible fade show position-fixed`;
-            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 350px; max-width: 500px;';
             notification.innerHTML = `
                 ${message}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
@@ -734,12 +788,17 @@
             
             document.body.appendChild(notification);
             
-            // Автоматическое удаление через 5 секунд
+            // Увеличиваем время показа для успешных сообщений с инструкциями
+            if (type === 'success' && message.includes('Инструкции')) {
+                duration = 10000; // 10 секунд для важных сообщений
+            }
+            
+            // Автоматическое удаление
             setTimeout(() => {
                 if (notification.parentNode) {
                     notification.remove();
                 }
-            }, 5000);
+            }, duration);
         }
 
         function formatBytes(bytes) {
@@ -752,7 +811,11 @@
 
         // Инициализация прогресс-колец
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('=== ИНИЦИАЛИЗАЦИЯ АДМИН-ПАНЕЛИ ===');
+            
+            // Инициализация прогресс-колец
             const circles = document.querySelectorAll('.progress-ring__circle');
+            console.log('Найдено прогресс-колец:', circles.length);
             circles.forEach(circle => {
                 const radius = 45;
                 const circumference = 2 * Math.PI * radius;
@@ -760,17 +823,52 @@
                 circle.style.strokeDashoffset = circumference;
             });
             
+            // Проверяем наличие элементов навигации
+            const navLinks = document.querySelectorAll('.nav-link');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            console.log('Найдено ссылок навигации:', navLinks.length);
+            console.log('Найдено вкладок содержимого:', tabContents.length);
+            
+            // Логируем все найденные элементы
+            navLinks.forEach((link, index) => {
+                const tabName = link.getAttribute('data-tab');
+                console.log(`Навигация ${index + 1}: data-tab="${tabName}", href="${link.href}"`);
+            });
+            
+            tabContents.forEach((tab, index) => {
+                console.log(`Вкладка ${index + 1}: id="${tab.id}", активна: ${tab.classList.contains('active')}`);
+            });
+            
             // Добавляем обработчики кликов для навигации
-            document.querySelectorAll('.nav-link').forEach(link => {
+            navLinks.forEach((link, index) => {
                 link.addEventListener('click', function(e) {
+                    console.log(`=== КЛИК ПО НАВИГАЦИИ ${index + 1} ===`);
                     e.preventDefault();
+                    
                     const tabName = this.getAttribute('data-tab');
-                    switchTab(tabName);
+                    const href = this.getAttribute('href');
+                    
+                    console.log('Атрибут data-tab:', tabName);
+                    console.log('Атрибут href:', href);
+                    console.log('Элемент:', this);
+                    
+                    if (tabName) {
+                        console.log('Вызываем switchTab с:', tabName);
+                        switchTab(tabName);
+                    } else {
+                        console.error('Атрибут data-tab не найден!');
+                    }
                 });
+                
+                console.log(`Обработчик добавлен для навигации ${index + 1}`);
             });
             
             // Инициализация дашборда
+            console.log('Инициализация дашборда...');
             refreshDashboard();
+            
+            console.log('=== ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА ===');
         });
     </script>
 </body>

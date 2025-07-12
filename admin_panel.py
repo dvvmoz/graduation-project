@@ -154,64 +154,121 @@ class AdminPanel:
             cmd = allowed_commands[command] + args
             process_id = f"{command}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
             
-            # Запуск процесса в фоне
-            def run_process():
+            # Специальная обработка для demo_bot - запуск в отдельном терминале
+            if command == 'demo_bot':
                 try:
-                    result = subprocess.run(
-                        cmd,
-                        capture_output=True,
-                        text=True,
-                        encoding='utf-8',
-                        timeout=300  # 5 минут таймаут
-                    )
+                    if os.name == 'nt':  # Windows
+                        # Запуск в новом окне командной строки
+                        subprocess.Popen(
+                            ['cmd', '/c', 'start', 'cmd', '/k', 'python', 'demo_bot.py'],
+                            cwd=os.getcwd(),
+                            creationflags=subprocess.CREATE_NEW_CONSOLE
+                        )
+                    else:  # Linux/macOS
+                        # Пробуем разные терминалы
+                        terminals = [
+                            ['gnome-terminal', '--', 'python', 'demo_bot.py'],
+                            ['xterm', '-e', 'python', 'demo_bot.py'],
+                            ['konsole', '-e', 'python', 'demo_bot.py'],
+                            ['x-terminal-emulator', '-e', 'python', 'demo_bot.py']
+                        ]
+                        
+                        terminal_launched = False
+                        for terminal_cmd in terminals:
+                            try:
+                                subprocess.Popen(terminal_cmd, cwd=os.getcwd())
+                                terminal_launched = True
+                                break
+                            except FileNotFoundError:
+                                continue
+                        
+                        if not terminal_launched:
+                            # Fallback: запуск в фоне с выводом в лог
+                            return self._run_background_process(cmd, process_id)
                     
-                    running_processes[process_id] = {
-                        'status': 'completed',
-                        'returncode': result.returncode,
-                        'stdout': result.stdout,
-                        'stderr': result.stderr,
-                        'command': ' '.join(cmd),
-                        'finished_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    }
-                    
-                    # Отправляем обновление через WebSocket
-                    socketio.emit('process_completed', {
+                    return {
+                        'success': True,
                         'process_id': process_id,
-                        'status': 'completed',
-                        'returncode': result.returncode
-                    })
+                        'message': 'Демо-бот запущен в отдельном терминале'
+                    }
                     
-                except subprocess.TimeoutExpired:
-                    running_processes[process_id] = {
-                        'status': 'timeout',
-                        'error': 'Процесс превысил время ожидания (5 минут)'
-                    }
                 except Exception as e:
-                    running_processes[process_id] = {
-                        'status': 'error',
-                        'error': str(e)
-                    }
+                    logger.error(f"Ошибка запуска демо-бота в терминале: {e}")
+                    # Fallback: запуск в фоне
+                    return self._run_background_process(cmd, process_id)
             
-            # Запуск в отдельном потоке
-            thread = threading.Thread(target=run_process)
-            thread.daemon = True
-            thread.start()
-            
-            running_processes[process_id] = {
-                'status': 'running',
-                'command': ' '.join(cmd),
-                'started_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            }
-            
-            return {
-                'success': True,
-                'process_id': process_id,
-                'message': f'Команда {command} запущена'
-            }
+            # Для остальных команд - запуск в фоне
+            return self._run_background_process(cmd, process_id)
             
         except Exception as e:
             logger.error(f"Ошибка выполнения команды {command}: {e}")
             return {'error': str(e)}
+    
+    def _run_background_process(self, cmd, process_id):
+        """Запуск процесса в фоне."""
+        # Запуск процесса в фоне
+        def run_process():
+            try:
+                # Для Windows устанавливаем кодировку консоли
+                env = os.environ.copy()
+                if os.name == 'nt':  # Windows
+                    env['PYTHONIOENCODING'] = 'utf-8'
+                    env['PYTHONLEGACYWINDOWSSTDIO'] = '0'
+                
+                result = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    encoding='utf-8',
+                    errors='replace',  # Заменяем проблемные символы
+                    timeout=300,  # 5 минут таймаут
+                    env=env,
+                    shell=True if os.name == 'nt' else False  # Для Windows используем shell
+                )
+                
+                running_processes[process_id] = {
+                    'status': 'completed',
+                    'returncode': result.returncode,
+                    'stdout': result.stdout,
+                    'stderr': result.stderr,
+                    'command': ' '.join(cmd),
+                    'finished_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+                
+                # Отправляем обновление через WebSocket
+                socketio.emit('process_completed', {
+                    'process_id': process_id,
+                    'status': 'completed',
+                    'returncode': result.returncode
+                })
+                
+            except subprocess.TimeoutExpired:
+                running_processes[process_id] = {
+                    'status': 'timeout',
+                    'error': 'Процесс превысил время ожидания (5 минут)'
+                }
+            except Exception as e:
+                running_processes[process_id] = {
+                    'status': 'error',
+                    'error': str(e)
+                }
+        
+        # Запуск в отдельном потоке
+        thread = threading.Thread(target=run_process)
+        thread.daemon = True
+        thread.start()
+        
+        running_processes[process_id] = {
+            'status': 'running',
+            'command': ' '.join(cmd),
+            'started_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        }
+        
+        return {
+            'success': True,
+            'process_id': process_id,
+            'message': f'Команда {" ".join(cmd)} запущена в фоне'
+        }
     
     def get_process_status(self, process_id=None):
         """Получение статуса процессов."""
