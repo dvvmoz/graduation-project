@@ -29,6 +29,15 @@ TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 CHROMA_DB_PATH = os.getenv("CHROMA_DB_PATH", "db/chroma")
 
+# Настройки администраторов
+ADMIN_IDS = []
+admin_ids_str = os.getenv("ADMIN_IDS", "")
+if admin_ids_str:
+    try:
+        ADMIN_IDS = [int(id.strip()) for id in admin_ids_str.split(",") if id.strip()]
+    except ValueError:
+        print("⚠️ Предупреждение: Некорректный формат ADMIN_IDS в .env файле")
+
 # Настройки ИИ
 DEFAULT_MODEL = "gpt-4o-mini"
 MAX_RESULTS = 10  # Максимальное количество документов для контекста

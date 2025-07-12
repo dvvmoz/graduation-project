@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель ЮрПомощник</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            transition: all 0.3s;
+        }
+        .sidebar .nav-link:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .sidebar .nav-link.active {
+            color: white;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .main-content {
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        .stat-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        .log-viewer {
+            background: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .process-badge {
+            font-size: 0.8em;
+        }
+        .command-btn {
+            margin: 5px;
+            min-width: 150px;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .status-running { background: #ffc107; }
+        .status-completed { background: #28a745; }
+        .status-error { background: #dc3545; }
+        .status-timeout { background: #fd7e14; }
+        
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        .progress-ring__circle {
+            stroke: #007bff;
+            stroke-linecap: round;
+            stroke-width: 8;
+            fill: transparent;
+            r: 45;
+            cx: 50;
+            cy: 50;
+        }
+        .progress-ring__background {
+            stroke: #e9ecef;
+            stroke-width: 8;
+            fill: transparent;
+            r: 45;
+            cx: 50;
+            cy: 50;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 sidebar p-3">
+                <div class="d-flex flex-column">
+                    <h4 class="text-white mb-4">
+                        <i class="fas fa-gavel"></i> ЮрПомощник
+                    </h4>
+                    <nav class="nav flex-column">
+                        <a class="nav-link active" href="#dashboard" data-tab="dashboard">
+                            <i class="fas fa-tachometer-alt"></i> Дашборд
+                        </a>
+                        <a class="nav-link" href="#stats" data-tab="stats">
+                            <i class="fas fa-chart-bar"></i> Статистика
+                        </a>
+                        <a class="nav-link" href="#logs" data-tab="logs">
+                            <i class="fas fa-file-alt"></i> Логи
+                        </a>
+                        <a class="nav-link" href="#commands" data-tab="commands">
+                            <i class="fas fa-terminal"></i> Команды
+                        </a>
+                        <a class="nav-link" href="#processes" data-tab="processes">
+                            <i class="fas fa-tasks"></i> Процессы
+                        </a>
+                        <a class="nav-link" href="#documents" data-tab="documents">
+                            <i class="fas fa-file-pdf"></i> Документы
+                        </a>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 col-lg-10 main-content p-4">
+                <!-- Dashboard Tab -->
+                <div id="dashboard" class="tab-content active">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-tachometer-alt"></i> Дашборд</h2>
+                        <button class="btn btn-outline-primary" onclick="refreshDashboard()">
+                            <i class="fas fa-sync-alt"></i> Обновить
+                        </button>
+                    </div>
+
+                    <!-- System Status Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-card p-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <svg class="progress-ring" width="100" height="100">
+                                            <circle class="progress-ring__background" />
+                                            <circle class="progress-ring__circle" id="cpu-circle" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h6 class="text-muted">CPU</h6>
+                                        <h4 id="cpu-percent">0%</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-card p-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <svg class="progress-ring" width="100" height="100">
+                                            <circle class="progress-ring__background" />
+                                            <circle class="progress-ring__circle" id="memory-circle" />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h6 class="text-muted">Память</h6>
+                                        <h4 id="memory-percent">0%</h4>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-card p-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <i class="fas fa-database fa-3x text-info"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="text-muted">База знаний</h6>
+                                        <h4 id="kb-documents">0</h4>
+                                        <small class="text-muted">документов</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <div class="stat-card p-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="me-3">
+                                        <i class="fas fa-file-alt fa-3x text-success"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="text-muted">Файлы логов</h6>
+                                        <h4 id="log-files-count">0</h4>
+                                        <small class="text-muted">файлов</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-rocket"></i> Быстрые действия</h5>
+                                </div>
+                                <div class="card-body">
+                                    <button class="btn btn-primary command-btn" onclick="executeCommand('demo_bot')">
+                                        <i class="fas fa-play"></i> Демо-бот
+                                    </button>
+                                    <button class="btn btn-info command-btn" onclick="executeCommand('test_demo')">
+                                        <i class="fas fa-vial"></i> Тест системы
+                                    </button>
+                                    <button class="btn btn-success command-btn" onclick="executeCommand('populate_db')">
+                                        <i class="fas fa-database"></i> Обновить БД
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-info-circle"></i> Системная информация</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <strong>Время работы:</strong><br>
+                                            <span id="uptime">-</span>
+                                        </div>
+                                        <div class="col-6">
+                                            <strong>Последнее обновление:</strong><br>
+                                            <span id="last-update">-</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats Tab -->
+                <div id="stats" class="tab-content">
+                    <h2><i class="fas fa-chart-bar"></i> Статистика системы</h2>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5>Детальная статистика</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="detailed-stats">
+                                        <div class="text-center">
+                                            <div class="spinner-border" role="status">
+                                                <span class="visually-hidden">Загрузка...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Logs Tab -->
+                <div id="logs" class="tab-content">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-file-alt"></i> Просмотр логов</h2>
+                        <div>
+                            <select id="log-select" class="form-select d-inline-block w-auto me-2">
+                                <option value="">Выберите лог-файл</option>
+                            </select>
+                            <button class="btn btn-outline-primary" onclick="refreshLogs()">
+                                <i class="fas fa-sync-alt"></i> Обновить
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 id="current-log-title">Выберите файл лога</h5>
+                            <small class="text-muted" id="log-info"></small>
+                        </div>
+                        <div class="card-body p-0">
+                            <pre id="log-content" class="log-viewer p-3 m-0">Выберите файл лога для просмотра</pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Commands Tab -->
+                <div id="commands" class="tab-content">
+                    <h2><i class="fas fa-terminal"></i> Выполнение команд</h2>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5>База знаний</h5>
+                                </div>
+                                <div class="card-body">
+                                    <button class="btn btn-primary command-btn" onclick="executeCommand('populate_db')">
+                                        <i class="fas fa-database"></i> Обновить БД
+                                    </button>
+                                    <button class="btn btn-warning command-btn" onclick="executeCommand('update_documents')">
+                                        <i class="fas fa-sync"></i> Обновить документы
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5>Веб-скрапинг</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="input-group mb-3">
+                                        <input type="text" class="form-control" id="scrape-url" placeholder="URL для скрапинга">
+                                        <input type="number" class="form-control" id="scrape-pages" placeholder="Страниц" value="10">
+                                        <button class="btn btn-success" onclick="executeScrapeCommand()">
+                                            <i class="fas fa-spider"></i> Скрапинг
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row mt-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5>Тестирование</h5>
+                                </div>
+                                <div class="card-body">
+                                    <button class="btn btn-info command-btn" onclick="executeCommand('demo_bot')">
+                                        <i class="fas fa-play"></i> Демо-бот
+                                    </button>
+                                    <button class="btn btn-secondary command-btn" onclick="executeCommand('test_demo')">
+                                        <i class="fas fa-vial"></i> Тест системы
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Processes Tab -->
+                <div id="processes" class="tab-content">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-tasks"></i> Активные процессы</h2>
+                        <button class="btn btn-outline-primary" onclick="refreshProcesses()">
+                            <i class="fas fa-sync-alt"></i> Обновить
+                        </button>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                            <div id="processes-list">
+                                <div class="text-center text-muted">
+                                    <i class="fas fa-tasks fa-3x mb-3"></i>
+                                    <p>Нет активных процессов</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Documents Tab -->
+                <div id="documents" class="tab-content">
+                    <h2><i class="fas fa-file-pdf"></i> Управление документами</h2>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5>Информация о документах</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle"></i>
+                                        Для добавления новых документов поместите файлы PDF, DOCX или DOC в папку <code>data/documents/</code>
+                                        и запустите команду "Обновить БД".
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6>Поддерживаемые форматы:</h6>
+                                            <ul>
+                                                <li>PDF (.pdf)</li>
+                                                <li>Microsoft Word (.docx)</li>
+                                                <li>Microsoft Word старый (.doc)</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6>Действия:</h6>
+                                            <button class="btn btn-primary" onclick="executeCommand('populate_db')">
+                                                <i class="fas fa-database"></i> Обновить базу знаний
+                                            </button>
+                                            <button class="btn btn-warning" onclick="executeCommand('update_documents')">
+                                                <i class="fas fa-sync"></i> Обновить документы
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <script>
+        // Глобальные переменные
+        let socket;
+        let currentTab = 'dashboard';
+        let statsUpdateInterval;
+        let startTime = Date.now();
+
+        // Инициализация
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        function initializeApp() {
+            // Инициализация WebSocket
+            socket = io();
+            
+            socket.on('connect', function() {
+                console.log('WebSocket подключен');
+            });
+
+            socket.on('process_completed', function(data) {
+                showNotification(`Процесс ${data.process_id} завершен`, 'success');
+                refreshProcesses();
+            });
+
+            // Обработка табов
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const tab = this.getAttribute('data-tab');
+                    switchTab(tab);
+                });
+            });
+
+            // Обработка выбора лог-файла
+            document.getElementById('log-select').addEventListener('change', function() {
+                const logFile = this.value;
+                if (logFile) {
+                    loadLogFile(logFile);
+                }
+            });
+
+            // Запуск обновления данных
+            refreshDashboard();
+            loadLogFilesList();
+            
+            // Автообновление каждые 5 секунд
+            statsUpdateInterval = setInterval(refreshDashboard, 5000);
+        }
+
+        function switchTab(tabName) {
+            // Скрыть все табы
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Убрать активный класс с навигации
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Показать выбранный таб
+            document.getElementById(tabName).classList.add('active');
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            
+            currentTab = tabName;
+            
+            // Загрузить данные для таба
+            switch(tabName) {
+                case 'stats':
+                    loadDetailedStats();
+                    break;
+                case 'logs':
+                    loadLogFilesList();
+                    break;
+                case 'processes':
+                    refreshProcesses();
+                    break;
+            }
+        }
+
+        function refreshDashboard() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    updateDashboard(data);
+                })
+                .catch(error => {
+                    console.error('Ошибка загрузки статистики:', error);
+                });
+        }
+
+        function updateDashboard(data) {
+            if (data.error) {
+                showNotification('Ошибка загрузки статистики: ' + data.error, 'error');
+                return;
+            }
+
+            // Обновление системных показателей
+            if (data.system) {
+                updateProgressRing('cpu-circle', data.system.cpu_percent);
+                updateProgressRing('memory-circle', data.system.memory_percent);
+                document.getElementById('cpu-percent').textContent = data.system.cpu_percent.toFixed(1) + '%';
+                document.getElementById('memory-percent').textContent = data.system.memory_percent.toFixed(1) + '%';
+            }
+
+            // Обновление базы знаний
+            if (data.knowledge_base) {
+                document.getElementById('kb-documents').textContent = data.knowledge_base.total_documents || 0;
+            }
+
+            // Обновление логов
+            if (data.logs) {
+                document.getElementById('log-files-count').textContent = Object.keys(data.logs).length;
+            }
+
+            // Обновление времени
+            document.getElementById('last-update').textContent = data.timestamp;
+            
+            const uptime = Math.floor((Date.now() - startTime) / 1000);
+            const hours = Math.floor(uptime / 3600);
+            const minutes = Math.floor((uptime % 3600) / 60);
+            const seconds = uptime % 60;
+            document.getElementById('uptime').textContent = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function updateProgressRing(elementId, percentage) {
+            const circle = document.getElementById(elementId);
+            const radius = 45;
+            const circumference = 2 * Math.PI * radius;
+            const offset = circumference - (percentage / 100) * circumference;
+            
+            circle.style.strokeDasharray = circumference;
+            circle.style.strokeDashoffset = offset;
+        }
+
+        function loadDetailedStats() {
+            fetch('/api/stats')
+                .then(response => response.json())
+                .then(data => {
+                    const statsContainer = document.getElementById('detailed-stats');
+                    statsContainer.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                })
+                .catch(error => {
+                    document.getElementById('detailed-stats').innerHTML = 
+                        `<div class="alert alert-danger">Ошибка загрузки: ${error.message}</div>`;
+                });
+        }
+
+        function loadLogFilesList() {
+            fetch('/api/logs')
+                .then(response => response.json())
+                .then(data => {
+                    const select = document.getElementById('log-select');
+                    select.innerHTML = '<option value="">Выберите лог-файл</option>';
+                    
+                    data.forEach(log => {
+                        const option = document.createElement('option');
+                        option.value = log.name;
+                        option.textContent = `${log.name} (${formatBytes(log.size)})`;
+                        select.appendChild(option);
+                    });
+                })
+                .catch(error => {
+                    console.error('Ошибка загрузки списка логов:', error);
+                });
+        }
+
+        function loadLogFile(logFile) {
+            fetch(`/api/logs/${logFile}?lines=200`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        document.getElementById('log-content').textContent = 'Ошибка: ' + data.error;
+                        return;
+                    }
+                    
+                    document.getElementById('current-log-title').textContent = data.file;
+                    document.getElementById('log-info').textContent = 
+                        `Показано ${data.shown_lines} из ${data.total_lines} строк`;
+                    document.getElementById('log-content').textContent = data.content;
+                })
+                .catch(error => {
+                    document.getElementById('log-content').textContent = 'Ошибка загрузки: ' + error.message;
+                });
+        }
+
+        function refreshLogs() {
+            const currentLog = document.getElementById('log-select').value;
+            if (currentLog) {
+                loadLogFile(currentLog);
+            }
+        }
+
+        function executeCommand(command, args = []) {
+            const data = {
+                command: command,
+                args: args
+            };
+
+            fetch('/api/execute', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    showNotification('Ошибка: ' + data.error, 'error');
+                } else {
+                    showNotification(data.message, 'success');
+                    refreshProcesses();
+                }
+            })
+            .catch(error => {
+                showNotification('Ошибка выполнения команды: ' + error.message, 'error');
+            });
+        }
+
+        function executeScrapeCommand() {
+            const url = document.getElementById('scrape-url').value;
+            const pages = document.getElementById('scrape-pages').value;
+            
+            if (!url) {
+                showNotification('Введите URL для скрапинга', 'warning');
+                return;
+            }
+
+            const args = [url];
+            if (pages) {
+                args.push('--max-pages', pages);
+            }
+
+            executeCommand('scrape_websites', args);
+        }
+
+        function refreshProcesses() {
+            fetch('/api/processes')
+                .then(response => response.json())
+                .then(data => {
+                    updateProcessesList(data);
+                })
+                .catch(error => {
+                    console.error('Ошибка загрузки процессов:', error);
+                });
+        }
+
+        function updateProcessesList(processes) {
+            const container = document.getElementById('processes-list');
+            
+            if (Object.keys(processes).length === 0) {
+                container.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="fas fa-tasks fa-3x mb-3"></i>
+                        <p>Нет активных процессов</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            for (const [processId, process] of Object.entries(processes)) {
+                const statusClass = `status-${process.status}`;
+                const statusText = {
+                    'running': 'Выполняется',
+                    'completed': 'Завершен',
+                    'error': 'Ошибка',
+                    'timeout': 'Таймаут'
+                }[process.status] || process.status;
+
+                html += `
+                    <div class="card mb-3">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h6 class="card-title">
+                                        <span class="status-indicator ${statusClass}"></span>
+                                        ${processId}
+                                    </h6>
+                                    <p class="card-text">
+                                        <strong>Команда:</strong> ${process.command}<br>
+                                        <strong>Статус:</strong> 
+                                        <span class="badge bg-${getStatusColor(process.status)} process-badge">${statusText}</span>
+                                    </p>
+                                    ${process.started_at ? `<small class="text-muted">Запущен: ${process.started_at}</small>` : ''}
+                                    ${process.finished_at ? `<br><small class="text-muted">Завершен: ${process.finished_at}</small>` : ''}
+                                </div>
+                                <div>
+                                    ${process.returncode !== undefined ? `<span class="badge bg-${process.returncode === 0 ? 'success' : 'danger'}">Код: ${process.returncode}</span>` : ''}
+                                </div>
+                            </div>
+                            ${process.stdout ? `<div class="mt-2"><strong>Вывод:</strong><pre class="bg-light p-2 mt-1">${process.stdout}</pre></div>` : ''}
+                            ${process.stderr ? `<div class="mt-2"><strong>Ошибки:</strong><pre class="bg-danger text-white p-2 mt-1">${process.stderr}</pre></div>` : ''}
+                            ${process.error ? `<div class="mt-2"><strong>Ошибка:</strong><div class="alert alert-danger">${process.error}</div></div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function getStatusColor(status) {
+            const colors = {
+                'running': 'warning',
+                'completed': 'success',
+                'error': 'danger',
+                'timeout': 'warning'
+            };
+            return colors[status] || 'secondary';
+        }
+
+        function showNotification(message, type = 'info') {
+            const colors = {
+                'success': 'alert-success',
+                'error': 'alert-danger',
+                'warning': 'alert-warning',
+                'info': 'alert-info'
+            };
+            
+            const notification = document.createElement('div');
+            notification.className = `alert ${colors[type]} alert-dismissible fade show position-fixed`;
+            notification.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Автоматическое удаление через 5 секунд
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 5000);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Инициализация прогресс-колец
+        document.addEventListener('DOMContentLoaded', function() {
+            const circles = document.querySelectorAll('.progress-ring__circle');
+            circles.forEach(circle => {
+                const radius = 45;
+                const circumference = 2 * Math.PI * radius;
+                circle.style.strokeDasharray = circumference;
+                circle.style.strokeDashoffset = circumference;
+            });
+            
+            // Добавляем обработчики кликов для навигации
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const tabName = this.getAttribute('data-tab');
+                    switchTab(tabName);
+                });
+            });
+            
+            // Инициализация дашборда
+            refreshDashboard();
+        });
+    </script>
+</body>
+</html> 
