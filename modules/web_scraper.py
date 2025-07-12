@@ -17,6 +17,7 @@ import os
 
 from .text_processing import TextProcessor
 from .knowledge_base import KnowledgeBase
+from .legal_content_filter import create_legal_content_filter
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class WebScraper:
     def __init__(self, knowledge_base: KnowledgeBase, text_processor: TextProcessor):
         self.knowledge_base = knowledge_base
         self.text_processor = text_processor
+        self.legal_filter = create_legal_content_filter()
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -327,7 +329,7 @@ class WebScraper:
     
     def add_to_knowledge_base(self, pages_data: List[Dict]) -> int:
         """
-        Добавление данных в базу знаний
+        Добавление данных в базу знаний с фильтрацией юридического контента
         
         Args:
             pages_data: Список словарей с данными страниц
@@ -335,9 +337,22 @@ class WebScraper:
         Returns:
             Количество добавленных документов
         """
+        if not pages_data:
+            return 0
+        
+        # Сначала фильтруем контент на юридическую релевантность
+        logger.info(f"🔍 WEB_SCRAPER: Фильтрация {len(pages_data)} страниц на юридическую релевантность")
+        filtered_pages = self.legal_filter.filter_scraped_content(pages_data)
+        
+        if not filtered_pages:
+            logger.info("🚫 WEB_SCRAPER: Ни одна страница не прошла фильтр юридической релевантности")
+            return 0
+        
+        logger.info(f"✅ WEB_SCRAPER: {len(filtered_pages)} из {len(pages_data)} страниц прошли фильтр")
+        
         added_count = 0
         
-        for page_data in pages_data:
+        for page_data in filtered_pages:
             try:
                 # Разбиваем контент на чанки
                 chunks = self.text_processor.split_text(page_data['content'])
@@ -360,7 +375,10 @@ class WebScraper:
                         'total_chunks': len(chunks),
                         'content_type': 'legal_website',
                         'source_type': 'pravo.by_dynamic',
-                        'scraped_at': timestamp
+                        'scraped_at': timestamp,
+                        'legal_score': page_data.get('legal_score', 0.0),
+                        'legal_explanation': page_data.get('legal_explanation', ''),
+                        'filtered_at': page_data.get('filtered_at', '')
                     }
                     
                     # Добавляем в базу знаний с правильным порядком параметров
@@ -373,7 +391,7 @@ class WebScraper:
             except Exception as e:
                 logger.error(f"Ошибка при добавлении страницы {page_data['url']}: {e}")
         
-        logger.info(f"💾 WEB_SCRAPER: Добавлено в базу знаний: {added_count} чанков из {len(pages_data)} страниц")
+        logger.info(f"💾 WEB_SCRAPER: Добавлено в базу знаний: {added_count} чанков из {len(filtered_pages)} отфильтрованных страниц")
         return added_count
     
     def scrape_and_add(self, start_url: str, max_pages: int = None) -> Dict:

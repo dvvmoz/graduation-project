@@ -14,6 +14,7 @@ from .scraping_tracker import get_scraping_tracker
 from .incremental_scraper import create_incremental_scraper
 from .dynamic_search import create_dynamic_searcher
 from .text_processing import TextProcessor
+from .question_filter import is_legal_question, get_rejection_message
 
 logger = logging.getLogger(__name__)
 
@@ -820,6 +821,22 @@ pip install psutil
         logger.info(f"Получен вопрос от пользователя {user_id}: {user_question[:100]}...")
         
         try:
+            # Проверяем, является ли вопрос юридическим
+            is_legal, score, explanation = is_legal_question(user_question)
+            
+            if not is_legal:
+                # Если вопрос не юридический, отклоняем его
+                logger.info(f"❌ ФИЛЬТР: Отклонен неюридический вопрос от пользователя {user_id} "
+                           f"(оценка: {score:.3f}): {explanation}")
+                
+                rejection_message = get_rejection_message()
+                await message.answer(rejection_message, parse_mode="Markdown")
+                return
+            
+            # Логируем принятие юридического вопроса
+            logger.info(f"✅ ФИЛЬТР: Принят юридический вопрос от пользователя {user_id} "
+                       f"(оценка: {score:.3f}): {explanation}")
+            
             # Отправляем сообщение о том, что обрабатываем запрос
             processing_msg = await message.answer("🔍 Ищу информацию по вашему вопросу...")
             
@@ -869,7 +886,6 @@ pip install psutil
                         
                         # Генерируем ответ на основе кешированной информации
                         from .knowledge_base import search_relevant_docs
-                        from .llm_service import get_answer
                         
                         # Ищем документы с динамическим поиском
                         cached_docs = search_relevant_docs(user_question, n_results=5)

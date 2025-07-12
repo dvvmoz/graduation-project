@@ -15,6 +15,7 @@ from .web_scraper import WebScraper
 from .knowledge_base import KnowledgeBase
 from .text_processing import TextProcessor
 from .scraping_tracker import ScrapingTracker
+from .legal_content_filter import create_legal_content_filter
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class DynamicSearcher:
         self.knowledge_base = knowledge_base
         self.text_processor = text_processor
         self.scraping_tracker = scraping_tracker
+        self.legal_filter = create_legal_content_filter()
         
         # Настройки поиска
         self.search_base_url = "https://pravo.by"
@@ -353,9 +355,19 @@ class DynamicSearcher:
                 logger.info("🚫 ДИНАМИЧЕСКИЙ ПОИСК: Не удалось спарсить релевантные страницы")
                 return None, False
             
-            # Добавляем в базу знаний
-            logger.info(f"💾 ДИНАМИЧЕСКИЙ ПОИСК: Добавляем {len(scraped_data)} страниц в базу знаний")
-            chunks_added = self.web_scraper.add_to_knowledge_base(scraped_data)
+            # Фильтруем контент на юридическую релевантность
+            logger.info(f"🔍 ДИНАМИЧЕСКИЙ ПОИСК: Фильтрация {len(scraped_data)} страниц на юридическую релевантность")
+            filtered_data = self.legal_filter.filter_scraped_content(scraped_data)
+            
+            if not filtered_data:
+                logger.info("🚫 ДИНАМИЧЕСКИЙ ПОИСК: Ни одна страница не прошла фильтр юридической релевантности")
+                return None, False
+            
+            logger.info(f"✅ ДИНАМИЧЕСКИЙ ПОИСК: {len(filtered_data)} из {len(scraped_data)} страниц прошли фильтр")
+            
+            # Добавляем в базу знаний только отфильтрованный контент
+            logger.info(f"💾 ДИНАМИЧЕСКИЙ ПОИСК: Добавляем {len(filtered_data)} отфильтрованных страниц в базу знаний")
+            chunks_added = self.web_scraper.add_to_knowledge_base(filtered_data)
             
             if chunks_added > 0:
                 # Обновляем информацию о парсинге

@@ -325,11 +325,11 @@ class LLMService:
             "temperature": 0.3
         }
 
-# Глобальный экземпляр сервиса
+# Глобальный экземпляр LLM сервиса
 _llm_service = None
 
 def get_llm_service() -> LLMService:
-    """Возвращает глобальный экземпляр LLM сервиса."""
+    """Получает глобальный экземпляр LLM сервиса."""
     global _llm_service
     if _llm_service is None:
         _llm_service = LLMService()
@@ -337,13 +337,14 @@ def get_llm_service() -> LLMService:
 
 def get_answer(user_question: str, context_docs: List[Dict[str, Any]]) -> str:
     """
-    Удобная функция для получения ответа.
+    Функция-обертка для получения ответа от LLM.
     
     Args:
         user_question: Вопрос пользователя
-        context_docs: Контекст из базы знаний
+        context_docs: Список релевантных документов из базы знаний
         
     Returns:
-        Ответ от языковой модели
+        Сгенерированный ответ
     """
-    return get_llm_service().get_answer(user_question, context_docs) 
+    llm_service = get_llm_service()
+    return llm_service.get_answer(user_question, context_docs) 
