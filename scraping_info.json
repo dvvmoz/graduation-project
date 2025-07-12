@@ -1,40 +1,12 @@
 {
   "last_scraping_date": "12.07.2025",
-  "last_scraping_time": "17:05",
+  "last_scraping_time": "22:29",
   "last_scraped_sites": [
     "pravo.by"
   ],
-  "total_pages_scraped": 73,
-  "total_chunks_added": 2088,
+  "total_pages_scraped": 85,
+  "total_chunks_added": 2568,
   "scraping_history": [
-    {
-      "date": "12.07.2025",
-      "time": "15:43",
-      "site": "pravo.by",
-      "pages_scraped": 5,
-      "chunks_added": 245
-    },
-    {
-      "date": "12.07.2025",
-      "time": "15:43",
-      "site": "pravo.by",
-      "pages_scraped": 3,
-      "chunks_added": 252
-    },
-    {
-      "date": "12.07.2025",
-      "time": "15:44",
-      "site": "pravo.by",
-      "pages_scraped": 5,
-      "chunks_added": 157
-    },
-    {
-      "date": "12.07.2025",
-      "time": "16:36",
-      "site": "pravo.by",
-      "pages_scraped": 5,
-      "chunks_added": 146
-    },
     {
       "date": "12.07.2025",
       "time": "16:38",
@@ -76,6 +48,34 @@
       "site": "pravo.by",
       "pages_scraped": 5,
       "chunks_added": 135
+    },
+    {
+      "date": "12.07.2025",
+      "time": "22:15",
+      "site": "pravo.by",
+      "pages_scraped": 3,
+      "chunks_added": 120
+    },
+    {
+      "date": "12.07.2025",
+      "time": "22:16",
+      "site": "pravo.by",
+      "pages_scraped": 3,
+      "chunks_added": 120
+    },
+    {
+      "date": "12.07.2025",
+      "time": "22:17",
+      "site": "pravo.by",
+      "pages_scraped": 3,
+      "chunks_added": 120
+    },
+    {
+      "date": "12.07.2025",
+      "time": "22:29",
+      "site": "pravo.by",
+      "pages_scraped": 3,
+      "chunks_added": 120
     }
   ]
 }

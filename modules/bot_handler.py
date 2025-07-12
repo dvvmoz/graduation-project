@@ -3,7 +3,7 @@
 """
 import logging
 from aiogram import Bot, Dispatcher, F
-from aiogram.types import Message
+from aiogram.types import Message, BotCommand
 from aiogram.filters import Command
 from aiogram.exceptions import TelegramAPIError
 import config
@@ -50,14 +50,44 @@ class LegalBot:
         # Обработчик команды /admin для доступа к админ-панели
         self.dp.message.register(self.handle_admin, Command("admin"))
         
-        # Обработчик команды /start_admin для запуска админ-панели
-        self.dp.message.register(self.handle_start_admin, Command("start_admin"))
+        # Обработчик команды /startadmin для запуска админ-панели
+        self.dp.message.register(self.handle_start_admin, Command("startadmin"))
         
-        # Обработчик команды /stop_admin для остановки админ-панели
-        self.dp.message.register(self.handle_stop_admin, Command("stop_admin"))
+        # Обработчик команды /stopadmin для остановки админ-панели
+        self.dp.message.register(self.handle_stop_admin, Command("stopadmin"))
+        
+        # Обработчики для новых команд с подчеркиванием (для совместимости)
+        self.dp.message.register(self.handle_deprecated_start_admin, Command("start_admin"))
+        self.dp.message.register(self.handle_deprecated_stop_admin, Command("stop_admin"))
         
         # Обработчик всех текстовых сообщений
         self.dp.message.register(self.handle_question, F.text)
+    
+    async def _setup_bot_commands(self):
+        """Настраивает команды бота в Telegram."""
+        commands = [
+            BotCommand(command="start", description="Начать работу с ботом"),
+            BotCommand(command="help", description="Справка по использованию"),
+            BotCommand(command="stats", description="Статистика базы знаний"),
+            BotCommand(command="admin", description="Веб-панель администратора"),
+            BotCommand(command="startadmin", description="Запуск админ-панели"),
+            BotCommand(command="stopadmin", description="Остановка админ-панели"),
+            BotCommand(command="scrape", description="Скрапинг сайтов"),
+            BotCommand(command="update", description="Инкрементальное обновление"),
+            BotCommand(command="dynamic", description="Статистика динамического поиска"),
+        ]
+        
+        try:
+            # Принудительно обновляем команды
+            await self.bot.set_my_commands(commands)
+            logger.info("✅ Команды бота успешно установлены:")
+            for cmd in commands:
+                logger.info(f"   /{cmd.command} - {cmd.description}")
+        except TelegramAPIError as e:
+            logger.error(f"❌ Ошибка установки команд бота: {e}")
+            # Не прерываем запуск бота из-за ошибки команд
+        except Exception as e:
+            logger.error(f"❌ Неожиданная ошибка при установке команд: {e}")
     
     async def handle_start(self, message: Message):
         """
@@ -93,8 +123,8 @@ class LegalBot:
 /help - справка по использованию
 /stats - статистика базы знаний
 /admin - веб-панель администратора (только для администраторов)
-/start_admin - запуск админ-панели (только для администраторов)
-/stop_admin - остановка админ-панели (только для администраторов)
+/startadmin - запуск админ-панели (только для администраторов)
+/stopadmin - остановка админ-панели (только для администраторов)
 /scrape - скрапинг сайтов (только для администраторов)
 /update - инкрементальное обновление (только для администраторов)
 /dynamic - статистика динамического поиска (только для администраторов)
@@ -151,8 +181,8 @@ class LegalBot:
 /help - эта справка
 /stats - информация о базе знаний
 /admin - веб-панель администратора (только для администраторов)
-/start_admin - запуск админ-панели (только для администраторов)
-/stop_admin - остановка админ-панели (только для администраторов)
+/startadmin - запуск админ-панели (только для администраторов)
+/stopadmin - остановка админ-панели (только для администраторов)
 /scrape - скрапинг сайтов (только для администраторов)
 /update - инкрементальное обновление (только для администраторов)
 /dynamic - статистика динамического поиска (только для администраторов)
@@ -731,6 +761,52 @@ pip install psutil
             logger.error(f"Ошибка при обработке команды /stop_admin: {e}")
             await message.answer("😔 Произошла ошибка при обработке команды.")
     
+    async def handle_deprecated_start_admin(self, message: Message):
+        """
+        Обрабатывает команду /start_admin с подчеркиванием.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        deprecated_text = """
+ℹ️ **Альтернативная команда**
+
+Вы использовали `/start_admin`, но основная команда:
+👉 `/startadmin` (без подчеркивания)
+
+Перенаправляю на запуск админ-панели...
+"""
+        try:
+            await message.answer(deprecated_text, parse_mode="Markdown")
+            logger.info(f"Пользователь {message.from_user.id} использовал команду /start_admin, перенаправляем на /startadmin")
+            # Вызываем основной обработчик
+            await self.handle_start_admin(message)
+        except TelegramAPIError as e:
+            logger.error(f"Ошибка отправки сообщения о команде: {e}")
+    
+    async def handle_deprecated_stop_admin(self, message: Message):
+        """
+        Обрабатывает команду /stop_admin с подчеркиванием.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        deprecated_text = """
+ℹ️ **Альтернативная команда**
+
+Вы использовали `/stop_admin`, но основная команда:
+👉 `/stopadmin` (без подчеркивания)
+
+Перенаправляю на остановку админ-панели...
+"""
+        try:
+            await message.answer(deprecated_text, parse_mode="Markdown")
+            logger.info(f"Пользователь {message.from_user.id} использовал команду /stop_admin, перенаправляем на /stopadmin")
+            # Вызываем основной обработчик
+            await self.handle_stop_admin(message)
+        except TelegramAPIError as e:
+            logger.error(f"Ошибка отправки сообщения о команде: {e}")
+    
     async def handle_question(self, message: Message):
         """
         Обрабатывает вопросы пользователя.
@@ -893,6 +969,8 @@ pip install psutil
         """Запускает бота в режиме polling."""
         try:
             logger.info("Запуск бота в режиме polling...")
+            # Устанавливаем команды бота
+            await self._setup_bot_commands()
             await self.dp.start_polling(self.bot)
         except Exception as e:
             logger.error(f"Ошибка при запуске polling: {e}")
