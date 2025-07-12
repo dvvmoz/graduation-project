@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  legal-bot:
+    build: .
+    container_name: legal-assistant-bot
+    restart: unless-stopped
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CHROMA_DB_PATH=/app/db/chroma
+    volumes:
+      # Монтируем папку с данными для удобного добавления PDF
+      - ./data:/app/data
+      # Монтируем папку с базой данных для персистентности
+      - ./db:/app/db
+    env_file:
+      - .env
+    depends_on:
+      - db-volume
+
+  # Сервис для создания volume для базы данных
+  db-volume:
+    image: alpine:latest
+    container_name: legal-bot-db-volume
+    volumes:
+      - ./db:/app/db
+    command: ["sh", "-c", "mkdir -p /app/db/chroma && echo 'Database directory created'"]
+
+volumes:
+  db-data:
+    driver: local 
