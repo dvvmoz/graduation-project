@@ -14,7 +14,7 @@ from .scraping_tracker import get_scraping_tracker
 from .incremental_scraper import create_incremental_scraper
 from .dynamic_search import create_dynamic_searcher
 from .text_processing import TextProcessor
-from .hybrid_question_filter import is_legal_question_hybrid as is_legal_question, get_hybrid_rejection_message as get_rejection_message
+from .ml_question_filter import is_legal_question_ml as is_legal_question, get_ml_rejection_message as get_rejection_message
 
 logger = logging.getLogger(__name__)
 
