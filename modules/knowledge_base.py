@@ -1,13 +1,40 @@
+#!/usr/bin/env python3
 """
 Модуль для работы с базой знаний на основе ChromaDB.
 """
+# Отключаем телеметрию ChromaDB в первую очередь
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import disable_telemetry
+
 import os
 import logging
-from typing import List, Dict, Any
+from pathlib import Path
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+import hashlib
+
+# Отключаем телеметрию ChromaDB для предотвращения ошибок
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY"] = "False"
+
 import chromadb
 from chromadb.config import Settings
+from chromadb.utils import embedding_functions
 from config import CHROMA_DB_PATH
 
+# Отключаем логирование телеметрии ChromaDB
+telemetry_logger = logging.getLogger('chromadb.telemetry')
+telemetry_logger.setLevel(logging.CRITICAL)
+telemetry_logger.addHandler(logging.NullHandler())
+
+# Отключаем логирование posthog
+posthog_logger = logging.getLogger('chromadb.telemetry.product.posthog')
+posthog_logger.setLevel(logging.CRITICAL)
+posthog_logger.addHandler(logging.NullHandler())
+
+# Настройка логирования для этого модуля
 logger = logging.getLogger(__name__)
 
 class KnowledgeBase:
@@ -34,7 +61,11 @@ class KnowledgeBase:
             # Инициализируем клиент ChromaDB
             self.client = chromadb.PersistentClient(
                 path=CHROMA_DB_PATH,
-                settings=Settings(anonymized_telemetry=False)
+                settings=Settings(
+                    anonymized_telemetry=False,
+                    allow_reset=True,
+                    is_persistent=True
+                )
             )
             
             # Получаем или создаем коллекцию
@@ -75,7 +106,6 @@ class KnowledgeBase:
                 metadata = {}
             
             # Добавляем текущее время и размер документа в метаданные
-            from datetime import datetime
             metadata.update({
                 "length": len(document_text),
                 "doc_id": doc_id,

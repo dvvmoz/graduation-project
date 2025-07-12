@@ -718,8 +718,24 @@
                 return;
             }
 
+            // Преобразуем объект в массив и добавляем числовое время для сортировки
+            const processArray = Object.entries(processes).map(([processId, process]) => {
+                const startTime = process.started_at ? new Date(process.started_at).getTime() : 0;
+                return {
+                    processId,
+                    ...process,
+                    sortTime: startTime
+                };
+            });
+            
+            // Сортируем по числовому времени в убывающем порядке (новые сверху)
+            processArray.sort((a, b) => b.sortTime - a.sortTime);
+            
+            console.log('Процессы отсортированы по времени (новые сверху):', 
+                processArray.map(p => `${p.processId}: ${p.started_at || 'нет времени'}`));
+
             let html = '';
-            for (const [processId, process] of Object.entries(processes)) {
+            for (const process of processArray) {
                 const statusClass = `status-${process.status}`;
                 const statusText = {
                     'running': 'Выполняется',
@@ -735,15 +751,15 @@
                                 <div>
                                     <h6 class="card-title">
                                         <span class="status-indicator ${statusClass}"></span>
-                                        ${processId}
+                                        ${process.processId}
                                     </h6>
                                     <p class="card-text">
                                         <strong>Команда:</strong> ${process.command}<br>
                                         <strong>Статус:</strong> 
                                         <span class="badge bg-${getStatusColor(process.status)} process-badge">${statusText}</span>
                                     </p>
-                                    ${process.started_at ? `<small class="text-muted">Запущен: ${process.started_at}</small>` : ''}
-                                    ${process.finished_at ? `<br><small class="text-muted">Завершен: ${process.finished_at}</small>` : ''}
+                                    ${process.started_at ? `<small class="text-muted">Запущен: ${new Date(process.started_at).toLocaleString()}</small>` : ''}
+                                    ${process.finished_at ? `<br><small class="text-muted">Завершен: ${new Date(process.finished_at).toLocaleString()}</small>` : ''}
                                 </div>
                                 <div>
                                     ${process.returncode !== undefined ? `<span class="badge bg-${process.returncode === 0 ? 'success' : 'danger'}">Код: ${process.returncode}</span>` : ''}

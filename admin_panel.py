@@ -226,13 +226,16 @@ class AdminPanel:
                     shell=True if os.name == 'nt' else False  # Для Windows используем shell
                 )
                 
+                # Сохраняем исходные данные и обновляем статус
+                original_data = running_processes.get(process_id, {})
                 running_processes[process_id] = {
+                    **original_data,  # Сохраняем все исходные данные
                     'status': 'completed',
                     'returncode': result.returncode,
                     'stdout': result.stdout,
                     'stderr': result.stderr,
                     'command': ' '.join(cmd),
-                    'finished_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    'finished_at': datetime.now().isoformat()
                 }
                 
                 # Отправляем обновление через WebSocket
@@ -243,12 +246,18 @@ class AdminPanel:
                 })
                 
             except subprocess.TimeoutExpired:
+                # Сохраняем исходные данные и обновляем статус
+                original_data = running_processes.get(process_id, {})
                 running_processes[process_id] = {
+                    **original_data,  # Сохраняем все исходные данные
                     'status': 'timeout',
                     'error': 'Процесс превысил время ожидания (5 минут)'
                 }
             except Exception as e:
+                # Сохраняем исходные данные и обновляем статус
+                original_data = running_processes.get(process_id, {})
                 running_processes[process_id] = {
+                    **original_data,  # Сохраняем все исходные данные
                     'status': 'error',
                     'error': str(e)
                 }
@@ -261,7 +270,7 @@ class AdminPanel:
         running_processes[process_id] = {
             'status': 'running',
             'command': ' '.join(cmd),
-            'started_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            'started_at': datetime.now().isoformat()
         }
         
         return {
