@@ -1,9 +1,11 @@
 """
-Модуль для обработки текста и извлечения данных из PDF-файлов.
+Модуль для обработки текста и извлечения данных из PDF-файлов и Word документов.
 """
 import re
 import fitz  # PyMuPDF
 import logging
+import os
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +42,144 @@ def extract_text_from_pdf(pdf_path: str) -> str:
     except Exception as e:
         logger.error(f"Ошибка при чтении PDF файла {pdf_path}: {e}")
         raise
+
+def extract_text_from_docx(docx_path: str) -> str:
+    """
+    Извлекает весь текст из DOCX-файла.
+    
+    Args:
+        docx_path: Путь к DOCX-файлу
+        
+    Returns:
+        Извлеченный текст из документа
+        
+    Raises:
+        FileNotFoundError: Если файл не найден
+        Exception: При ошибке чтения DOCX
+    """
+    try:
+        from docx import Document
+        
+        doc = Document(docx_path)
+        full_text = ""
+        
+        # Извлекаем текст из всех параграфов
+        for paragraph in doc.paragraphs:
+            if paragraph.text.strip():
+                full_text += paragraph.text + "\n"
+        
+        # Извлекаем текст из таблиц
+        for table in doc.tables:
+            for row in table.rows:
+                for cell in row.cells:
+                    if cell.text.strip():
+                        full_text += cell.text + "\n"
+        
+        logger.info(f"Извлечено {len(full_text)} символов из файла {docx_path}")
+        return full_text.strip()
+        
+    except ImportError:
+        logger.error("Для работы с DOCX файлами установите библиотеку: pip install python-docx")
+        raise Exception("Библиотека python-docx не установлена")
+    except FileNotFoundError:
+        logger.error(f"Файл не найден: {docx_path}")
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка при чтении DOCX файла {docx_path}: {e}")
+        raise
+
+def extract_text_from_doc(doc_path: str) -> str:
+    """
+    Извлекает весь текст из DOC-файла (старый формат Word).
+    
+    Args:
+        doc_path: Путь к DOC-файлу
+        
+    Returns:
+        Извлеченный текст из документа
+        
+    Raises:
+        FileNotFoundError: Если файл не найден
+        Exception: При ошибке чтения DOC
+    """
+    try:
+        import win32com.client
+        
+        # Создаем объект Word приложения
+        word = win32com.client.Dispatch("Word.Application")
+        word.Visible = False
+        
+        # Открываем документ
+        doc = word.Documents.Open(os.path.abspath(doc_path))
+        
+        # Извлекаем текст
+        full_text = doc.Content.Text
+        
+        # Закрываем документ и приложение
+        doc.Close()
+        word.Quit()
+        
+        logger.info(f"Извлечено {len(full_text)} символов из файла {doc_path}")
+        return full_text.strip()
+        
+    except ImportError:
+        logger.error("Для работы с DOC файлами установите библиотеку: pip install pywin32")
+        raise Exception("Библиотека pywin32 не установлена или MS Word не найден")
+    except FileNotFoundError:
+        logger.error(f"Файл не найден: {doc_path}")
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка при чтении DOC файла {doc_path}: {e}")
+        raise
+
+def extract_text_from_document(file_path: str) -> str:
+    """
+    Универсальная функция для извлечения текста из документов различных форматов.
+    
+    Args:
+        file_path: Путь к файлу документа
+        
+    Returns:
+        Извлеченный текст из документа
+        
+    Raises:
+        ValueError: Если формат файла не поддерживается
+        Exception: При ошибке чтения файла
+    """
+    file_extension = Path(file_path).suffix.lower()
+    
+    if file_extension == '.pdf':
+        return extract_text_from_pdf(file_path)
+    elif file_extension == '.docx':
+        return extract_text_from_docx(file_path)
+    elif file_extension == '.doc':
+        return extract_text_from_doc(file_path)
+    else:
+        supported_formats = ['.pdf', '.docx', '.doc']
+        raise ValueError(f"Неподдерживаемый формат файла: {file_extension}. "
+                        f"Поддерживаемые форматы: {', '.join(supported_formats)}")
+
+def get_supported_extensions() -> list[str]:
+    """
+    Возвращает список поддерживаемых расширений файлов.
+    
+    Returns:
+        Список расширений файлов
+    """
+    return ['.pdf', '.docx', '.doc']
+
+def is_supported_document(file_path: str) -> bool:
+    """
+    Проверяет, поддерживается ли формат документа.
+    
+    Args:
+        file_path: Путь к файлу
+        
+    Returns:
+        True если формат поддерживается, False в противном случае
+    """
+    file_extension = Path(file_path).suffix.lower()
+    return file_extension in get_supported_extensions()
 
 def recursive_semantic_splitter(text: str, separators: list[str], max_chunk_size: int) -> list[str]:
     """

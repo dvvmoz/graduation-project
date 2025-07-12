@@ -10,4 +10,6 @@ numpy<2.0.0
 requests==2.31.0
 beautifulsoup4==4.12.2
 aiohttp==3.9.1
-lxml==4.9.3 
+lxml==4.9.3
+python-docx==0.8.11
+pywin32==306; sys_platform == "win32" 

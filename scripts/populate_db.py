@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Скрипт для наполнения базы знаний из PDF файлов.
+Скрипт для наполнения базы знаний из PDF и Word файлов.
 """
 import os
 import sys
@@ -12,7 +12,12 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 from config import load_config
-from modules.text_processing import extract_text_from_pdf, split_text_into_structure
+from modules.text_processing import (
+    extract_text_from_document, 
+    split_text_into_structure, 
+    get_supported_extensions,
+    is_supported_document
+)
 from modules.knowledge_base import add_document, get_knowledge_base
 
 # Настройка логирования
@@ -22,23 +27,87 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def process_pdf_file(pdf_path: str, source_folder: str = "data") -> int:
+def update_document_file(file_path: str, source_folder: str = "data/documents") -> int:
     """
-    Обрабатывает один PDF файл и добавляет его содержимое в базу знаний.
+    Обновляет документ в базе знаний, удаляя старые блоки и добавляя новые.
     
     Args:
-        pdf_path: Путь к PDF файлу
+        file_path: Путь к файлу документа
+        source_folder: Папка-источник для метаданных
+        
+    Returns:
+        Количество добавленных блоков
+    """
+    try:
+        filename = os.path.basename(file_path)
+        file_extension = Path(file_path).suffix.lower()
+        base_name = os.path.splitext(filename)[0]
+        
+        logger.info(f"🔄 Обновляю файл: {filename} (формат: {file_extension})")
+        
+        # Проверяем поддерживаемый формат
+        if not is_supported_document(file_path):
+            logger.warning(f"❌ Неподдерживаемый формат файла: {file_extension}")
+            return 0
+        
+        # Получаем базу знаний
+        kb = get_knowledge_base()
+        
+        # Удаляем все существующие блоки этого документа
+        deleted_count = 0
+        block_index = 0
+        while True:
+            doc_id = f"{base_name}_block_{block_index:03d}"
+            if kb.document_exists(doc_id):
+                if kb.delete_document(doc_id):
+                    deleted_count += 1
+                block_index += 1
+            else:
+                break
+        
+        if deleted_count > 0:
+            logger.info(f"🗑️ Удалено {deleted_count} старых блоков документа {filename}")
+        
+        # Теперь добавляем новую версию документа
+        added_count = process_document_file(file_path, source_folder)
+        
+        if added_count > 0:
+            logger.info(f"✅ Документ {filename} обновлен: удалено {deleted_count}, добавлено {added_count} блоков")
+        
+        return added_count
+        
+    except Exception as e:
+        logger.error(f"💥 Критическая ошибка при обновлении файла {file_path}: {e}")
+        return 0
+
+def process_document_file(file_path: str, source_folder: str = "data/documents") -> int:
+    """
+    Обрабатывает один файл документа (PDF, DOCX, DOC) и добавляет его содержимое в базу знаний.
+    
+    Args:
+        file_path: Путь к файлу документа
         source_folder: Папка-источник для метаданных
         
     Returns:
         Количество добавленных документов
     """
     try:
-        filename = os.path.basename(pdf_path)
-        logger.info(f"📄 Обрабатываю файл: {filename}")
+        filename = os.path.basename(file_path)
+        file_extension = Path(file_path).suffix.lower()
         
-        # Извлекаем текст из PDF
-        full_text = extract_text_from_pdf(pdf_path)
+        logger.info(f"📄 Обрабатываю файл: {filename} (формат: {file_extension})")
+        
+        # Проверяем поддерживаемый формат
+        if not is_supported_document(file_path):
+            logger.warning(f"❌ Неподдерживаемый формат файла: {file_extension}")
+            return 0
+        
+        # Извлекаем текст из документа
+        try:
+            full_text = extract_text_from_document(file_path)
+        except Exception as e:
+            logger.error(f"❌ Ошибка извлечения текста из {filename}: {e}")
+            return 0
         
         if not full_text.strip():
             logger.warning(f"❌ Файл {filename} пуст или не содержит текста")
@@ -63,6 +132,7 @@ def process_pdf_file(pdf_path: str, source_folder: str = "data") -> int:
             metadata = {
                 "source_file": filename,
                 "source_folder": source_folder,
+                "file_type": file_extension,
                 "block_index": i,
                 "total_blocks": len(text_blocks),
                 "block_length": len(block)
@@ -78,15 +148,15 @@ def process_pdf_file(pdf_path: str, source_folder: str = "data") -> int:
         return added_count
         
     except Exception as e:
-        logger.error(f"❌ Ошибка обработки файла {pdf_path}: {e}")
+        logger.error(f"💥 Критическая ошибка при обработке файла {file_path}: {e}")
         return 0
 
-def populate_from_directory(data_dir: str = "data") -> dict:
+def populate_from_directory(data_dir: str = "data/documents") -> dict:
     """
-    Наполняет базу знаний из всех PDF файлов в указанной директории.
+    Наполняет базу знаний из всех поддерживаемых файлов в указанной директории.
     
     Args:
-        data_dir: Путь к директории с PDF файлами
+        data_dir: Путь к директории с файлами документов
         
     Returns:
         Статистика обработки
@@ -95,7 +165,8 @@ def populate_from_directory(data_dir: str = "data") -> dict:
         "total_files": 0,
         "processed_files": 0,
         "total_blocks": 0,
-        "failed_files": []
+        "failed_files": [],
+        "file_types": {}
     }
     
     # Проверяем существование директории
@@ -103,21 +174,33 @@ def populate_from_directory(data_dir: str = "data") -> dict:
         logger.error(f"❌ Директория {data_dir} не найдена")
         return stats
     
-    # Получаем список PDF файлов
-    pdf_files = [f for f in os.listdir(data_dir) if f.lower().endswith('.pdf')]
+    # Получаем список поддерживаемых файлов
+    supported_extensions = get_supported_extensions()
+    document_files = []
     
-    if not pdf_files:
-        logger.warning(f"❌ PDF файлы в директории {data_dir} не найдены")
+    for filename in os.listdir(data_dir):
+        file_path = os.path.join(data_dir, filename)
+        if os.path.isfile(file_path) and is_supported_document(file_path):
+            document_files.append(filename)
+            
+            # Подсчитываем типы файлов
+            file_ext = Path(filename).suffix.lower()
+            stats["file_types"][file_ext] = stats["file_types"].get(file_ext, 0) + 1
+    
+    if not document_files:
+        logger.warning(f"❌ Поддерживаемые файлы в директории {data_dir} не найдены")
+        logger.info(f"📋 Поддерживаемые форматы: {', '.join(supported_extensions)}")
         return stats
     
-    stats["total_files"] = len(pdf_files)
-    logger.info(f"📚 Найдено {len(pdf_files)} PDF файлов для обработки")
+    stats["total_files"] = len(document_files)
+    logger.info(f"📚 Найдено {len(document_files)} файлов для обработки")
+    logger.info(f"📊 Типы файлов: {dict(stats['file_types'])}")
     
     # Обрабатываем каждый файл
-    for filename in pdf_files:
-        pdf_path = os.path.join(data_dir, filename)
+    for filename in document_files:
+        file_path = os.path.join(data_dir, filename)
         
-        blocks_added = process_pdf_file(pdf_path, data_dir)
+        blocks_added = process_document_file(file_path, data_dir)
         
         if blocks_added > 0:
             stats["processed_files"] += 1
@@ -129,25 +212,31 @@ def populate_from_directory(data_dir: str = "data") -> dict:
 
 def show_statistics(stats: dict):
     """
-    Отображает статистику обработки.
+    Отображает статистику обработки файлов.
     
     Args:
         stats: Словарь со статистикой
     """
-    logger.info("📊 Статистика обработки:")
-    logger.info(f"  📄 Всего файлов: {stats['total_files']}")
-    logger.info(f"  ✅ Обработано успешно: {stats['processed_files']}")
-    logger.info(f"  📝 Добавлено блоков: {stats['total_blocks']}")
+    print("\n" + "="*60)
+    print("📊 СТАТИСТИКА ОБРАБОТКИ ФАЙЛОВ")
+    print("="*60)
+    
+    print(f"📁 Всего файлов найдено: {stats['total_files']}")
+    print(f"✅ Успешно обработано: {stats['processed_files']}")
+    print(f"❌ Не удалось обработать: {len(stats['failed_files'])}")
+    print(f"📝 Всего добавлено блоков: {stats['total_blocks']}")
+    
+    if stats.get('file_types'):
+        print(f"\n📋 Типы обработанных файлов:")
+        for file_type, count in stats['file_types'].items():
+            print(f"  {file_type}: {count} файлов")
     
     if stats['failed_files']:
-        logger.warning(f"  ❌ Файлы с ошибками: {len(stats['failed_files'])}")
+        print(f"\n❌ Файлы с ошибками:")
         for filename in stats['failed_files']:
-            logger.warning(f"    - {filename}")
+            print(f"  • {filename}")
     
-    # Получаем статистику базы знаний
-    kb = get_knowledge_base()
-    kb_stats = kb.get_collection_stats()
-    logger.info(f"  🗂️ Всего документов в базе: {kb_stats.get('total_documents', 0)}")
+    print("\n" + "="*60)
 
 def main():
     """Основная функция скрипта."""
@@ -157,13 +246,21 @@ def main():
         # Загружаем конфигурацию
         load_config()
         
-        # Проверяем наличие папки data
-        data_dir = "data"
+        # Проверяем наличие папки data/documents
+        data_dir = "data/documents"
         if not os.path.exists(data_dir):
             logger.info(f"📁 Создаю директорию {data_dir}")
-            os.makedirs(data_dir)
-            logger.info(f"📁 Директория {data_dir} создана. Добавьте PDF файлы и запустите скрипт снова.")
+            os.makedirs(data_dir, exist_ok=True)
+            
+            supported_formats = get_supported_extensions()
+            logger.info(f"📁 Директория {data_dir} создана.")
+            logger.info(f"📋 Поддерживаемые форматы: {', '.join(supported_formats)}")
+            logger.info(f"📄 Добавьте файлы документов в папку {data_dir} и запустите скрипт снова.")
             return
+        
+        # Показываем информацию о поддерживаемых форматах
+        supported_formats = get_supported_extensions()
+        logger.info(f"📋 Поддерживаемые форматы документов: {', '.join(supported_formats)}")
         
         # Наполняем базу знаний
         stats = populate_from_directory(data_dir)
@@ -173,6 +270,7 @@ def main():
         
         if stats["processed_files"] > 0:
             logger.info("✅ Наполнение базы знаний завершено успешно!")
+            logger.info(f"📊 Обработано {stats['processed_files']} файлов, добавлено {stats['total_blocks']} блоков")
         else:
             logger.warning("❌ Не удалось обработать ни одного файла")
             
