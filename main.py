@@ -10,7 +10,11 @@ def main():
     # Настройка логирования
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('bot.log', encoding='utf-8'),
+            logging.StreamHandler()
+        ]
     )
     
     # Проверяем конфигурацию
@@ -21,7 +25,7 @@ def main():
         return
     
     # Запускаем бота
-    logging.info("🚀 Запуск юридического чат-бота...")
+    logging.info("СТАРТ: Запуск юридического чат-бота...")
     try:
         start_bot()
     except Exception as e:
