@@ -160,10 +160,10 @@ class KnowledgeBase:
             metadatas = results.get('metadatas', [[]])[0]
             
             # Фильтруем результаты по релевантности
-            # Для косинусного расстояния: 0.0-0.3 отлично, 0.3-0.6 хорошо, 0.6-0.8 средне, >0.8 плохо
+            # Для косинусного расстояния: 0.0-0.3 отлично, 0.3-0.5 хорошо, 0.5-0.8 удовлетворительно, >0.8 плохо
             relevant_docs = []
             for i, (doc, distance) in enumerate(zip(documents, distances)):
-                if distance < 0.8:  # Порог релевантности (увеличен для лучшего покрытия)
+                if distance < 0.9:  # Порог релевантности (слегка увеличен для максимального покрытия)
                     metadata = metadatas[i] if i < len(metadatas) and metadatas[i] else {}
                     relevant_docs.append({
                         'content': doc,
@@ -176,13 +176,13 @@ class KnowledgeBase:
                 avg_distance = sum(distances) / len(distances)
                 min_distance = min(distances)
                 
-                # Определяем качество результатов
+                # Определяем качество результатов (обновлена шкала для более агрессивного поиска на pravo.by)
                 if min_distance < 0.3:
                     quality = "отличное"
-                elif min_distance < 0.6:
+                elif min_distance < 0.5:
                     quality = "хорошее"
                 elif min_distance < 0.8:
-                    quality = "среднее"
+                    quality = "удовлетворительное"
                 else:
                     quality = "слабое"
                 
