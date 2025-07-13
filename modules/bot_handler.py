@@ -15,6 +15,7 @@ from .incremental_scraper import create_incremental_scraper
 from .dynamic_search import create_dynamic_searcher
 from .text_processing import TextProcessor
 from .ml_question_filter import is_legal_question_ml as is_legal_question, get_ml_rejection_message as get_rejection_message
+from .ml_analytics_integration import create_question_context, finalize_question_context, get_analytics_summary
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,9 @@ class LegalBot:
         # Обработчик команды /admin для доступа к админ-панели
         self.dp.message.register(self.handle_admin, Command("admin"))
         
+        # Обработчик команды /analytics для статистики ML-фильтра
+        self.dp.message.register(self.handle_analytics, Command("analytics"))
+        
         # Обработчик команды /startadmin для запуска админ-панели
         self.dp.message.register(self.handle_start_admin, Command("startadmin"))
         
@@ -71,6 +75,7 @@ class LegalBot:
             BotCommand(command="help", description="Справка по использованию"),
             BotCommand(command="stats", description="Статистика базы знаний"),
             BotCommand(command="admin", description="Веб-панель администратора"),
+            BotCommand(command="analytics", description="Аналитика ML-фильтра"),
             BotCommand(command="startadmin", description="Запуск админ-панели"),
             BotCommand(command="stopadmin", description="Остановка админ-панели"),
             BotCommand(command="scrape", description="Скрапинг сайтов"),
@@ -526,6 +531,31 @@ class LegalBot:
             logger.error(f"Ошибка при обработке команды /admin: {e}")
             await message.answer("😔 Произошла ошибка при обработке команды.")
     
+    async def handle_analytics(self, message: Message):
+        """
+        Обрабатывает команду /analytics для получения статистики ML-фильтра.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        try:
+            # Проверяем права администратора
+            admin_ids = config.ADMIN_IDS if config.ADMIN_IDS else [123456789]
+            
+            if message.from_user.id not in admin_ids:
+                await message.answer(f"⛔ У вас нет прав для выполнения этой команды.\n\n📝 **Ваш ID:** `{message.from_user.id}`", parse_mode="Markdown")
+                return
+            
+            # Получаем статистику аналитики
+            analytics_summary = get_analytics_summary()
+            
+            await message.answer(analytics_summary, parse_mode="Markdown")
+            logger.info(f"Пользователь {message.from_user.id} запросил аналитику ML-фильтра")
+            
+        except Exception as e:
+            logger.error(f"Ошибка при обработке команды /analytics: {e}")
+            await message.answer("😔 Произошла ошибка при получении статистики.")
+    
     async def handle_start_admin(self, message: Message):
         """
         Обрабатывает команду /start_admin для запуска админ-панели.
@@ -820,6 +850,9 @@ pip install psutil
         
         logger.info(f"Получен вопрос от пользователя {user_id}: {user_question[:100]}...")
         
+        # Создаем контекст для аналитики
+        context_id = create_question_context(user_question, user_id)
+        
         try:
             # Проверяем, является ли вопрос юридическим
             is_legal, score, explanation = is_legal_question(user_question)
@@ -828,6 +861,9 @@ pip install psutil
                 # Если вопрос не юридический, отклоняем его
                 logger.info(f"❌ ФИЛЬТР: Отклонен неюридический вопрос от пользователя {user_id} "
                            f"(оценка: {score:.3f}): {explanation}")
+                
+                # Финализируем контекст для отклоненного вопроса
+                finalize_question_context(context_id, accepted=False, ml_confidence=score, ml_explanation=explanation)
                 
                 rejection_message = get_rejection_message()
                 await message.answer(rejection_message, parse_mode="Markdown")
@@ -897,6 +933,10 @@ pip install psutil
                     if success and dynamic_answer:
                         await processing_msg.edit_text(dynamic_answer)
                         logger.info(f"✅ ИСТОЧНИК: Динамический поиск успешен - ответ получен с pravo.by для пользователя {user_id}")
+                        
+                        # Финализируем контекст для успешного динамического поиска
+                        finalize_question_context(context_id, accepted=True, ml_confidence=score, ml_explanation=explanation,
+                                                search_quality="high", answer_source="dynamic_search")
                         return
                     else:
                         # Если динамический поиск не помог, но в базе есть хоть что-то
@@ -905,6 +945,11 @@ pip install psutil
                             answer = get_answer(user_question, relevant_docs)
                             await processing_msg.edit_text(answer)
                             logger.info(f"✅ ИСТОЧНИК: Ответ получен из базы знаний после неуспешного поиска на pravo.by для пользователя {user_id}")
+                            
+                            # Финализируем контекст для ответа из базы знаний после неуспешного поиска
+                            search_quality = "medium" if min(doc['distance'] for doc in relevant_docs) <= 0.5 else "low"
+                            finalize_question_context(context_id, accepted=True, ml_confidence=score, ml_explanation=explanation,
+                                                    search_quality=search_quality, answer_source="knowledge_base_fallback")
                             return
                         else:
                             # Если динамический поиск не помог и в базе ничего нет
@@ -923,6 +968,10 @@ pip install psutil
 Или обратитесь к квалифицированному юристу для получения персональной консультации.
 """
                             await processing_msg.edit_text(no_info_response, parse_mode="Markdown")
+                            
+                            # Финализируем контекст для случая, когда информация не найдена
+                            finalize_question_context(context_id, accepted=True, ml_confidence=score, ml_explanation=explanation,
+                                                    search_quality="none", answer_source="no_answer")
                             return
                         
                 except Exception as e:
@@ -934,6 +983,11 @@ pip install psutil
                         answer = get_answer(user_question, relevant_docs)
                         await processing_msg.edit_text(answer)
                         logger.info(f"✅ ИСТОЧНИК: Ответ получен из базы знаний после ошибки поиска на pravo.by для пользователя {user_id}")
+                        
+                        # Финализируем контекст для ответа из базы знаний после ошибки поиска
+                        search_quality = "medium" if min(doc['distance'] for doc in relevant_docs) <= 0.5 else "low"
+                        finalize_question_context(context_id, accepted=True, ml_confidence=score, ml_explanation=explanation,
+                                                search_quality=search_quality, answer_source="knowledge_base_error")
                         return
                     else:
                         # Если ошибка и в базе ничего нет
@@ -950,6 +1004,10 @@ pip install psutil
 Или обратитесь к квалифицированному юристу для получения персональной консультации.
 """
                         await processing_msg.edit_text(no_info_response, parse_mode="Markdown")
+                        
+                        # Финализируем контекст для случая ошибки без базы знаний
+                        finalize_question_context(context_id, accepted=True, ml_confidence=score, ml_explanation=explanation,
+                                                search_quality="error", answer_source="error")
                         return
             
             # Генерируем ответ с помощью LLM
@@ -961,14 +1019,28 @@ pip install psutil
             
             logger.info(f"✅ ИСТОЧНИК: Ответ отправлен пользователю {user_id} - OpenAI + База знаний")
             
+            # Финализируем контекст для принятого вопроса
+            search_quality = "high" if relevant_docs and min(doc['distance'] for doc in relevant_docs) <= 0.5 else "medium"
+            finalize_question_context(context_id, accepted=True, ml_confidence=score, ml_explanation=explanation, 
+                                    search_quality=search_quality, answer_source="knowledge_base")
+            
         except TelegramAPIError as e:
             logger.error(f"Ошибка Telegram API: {e}")
             # Если ошибка парсинга, отправляем ответ без форматирования
             try:
                 answer = get_answer(user_question, relevant_docs)
                 await message.answer(answer)
+                
+                # Финализируем контекст для случая ошибки Telegram API с ответом
+                search_quality = "medium" if relevant_docs and min(doc['distance'] for doc in relevant_docs) <= 0.5 else "low"
+                finalize_question_context(context_id, accepted=True, ml_confidence=score, ml_explanation=explanation,
+                                        search_quality=search_quality, answer_source="telegram_api_error")
             except:
                 await message.answer("Извините, произошла ошибка при отправке ответа.")
+                
+                # Финализируем контекст для критической ошибки
+                finalize_question_context(context_id, accepted=True, ml_confidence=score, ml_explanation=explanation,
+                                        search_quality="error", answer_source="critical_error")
         except Exception as e:
             logger.error(f"Неожиданная ошибка при обработке вопроса: {e}")
             error_response = """
@@ -982,6 +1054,14 @@ pip install psutil
 Приносим извинения за неудобства!
 """
             await message.answer(error_response)
+            
+            # Финализируем контекст для неожиданной ошибки
+            try:
+                finalize_question_context(context_id, accepted=True, ml_confidence=score, ml_explanation=explanation,
+                                        search_quality="error", answer_source="unexpected_error")
+            except:
+                # Если даже финализация не работает, просто логируем
+                logger.error("Ошибка при финализации контекста аналитики")
     
     async def start_polling(self):
         """Запускает бота в режиме polling."""
