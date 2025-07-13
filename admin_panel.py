@@ -21,6 +21,8 @@ sys.path.insert(0, str(project_root))
 
 from modules.knowledge_base import get_knowledge_base
 from modules.scraping_tracker import get_scraping_tracker
+from modules.user_analytics import get_analytics
+from modules.ml_analytics_integration import get_analytics_summary
 from admin_auth import setup_auth_routes, require_auth
 
 # Настройка логирования
@@ -369,6 +371,91 @@ def handle_subscribe_logs(data):
     if log_file in log_files:
         # Здесь можно добавить логику для отправки обновлений логов в реальном времени
         emit('log_subscribed', {'log_file': log_file})
+
+# ML Analytics API endpoints
+@app.route('/api/ml-analytics/summary')
+@require_auth
+def get_ml_analytics_summary():
+    """API для получения сводки аналитики ML-фильтра."""
+    try:
+        summary = get_analytics_summary()
+        return jsonify({'success': True, 'summary': summary})
+    except Exception as e:
+        logger.error(f"Ошибка получения сводки ML-аналитики: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/ml-analytics/stats')
+@require_auth
+def get_ml_analytics_stats():
+    """API для получения детальной статистики ML-фильтра."""
+    try:
+        days = request.args.get('days', 30, type=int)
+        analytics = get_analytics()
+        stats = analytics.get_analytics_summary(days=days)
+        return jsonify({'success': True, 'stats': stats})
+    except Exception as e:
+        logger.error(f"Ошибка получения статистики ML-аналитики: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/ml-analytics/low-confidence')
+@require_auth
+def get_low_confidence_questions():
+    """API для получения вопросов с низкой уверенностью."""
+    try:
+        threshold = request.args.get('threshold', 0.7, type=float)
+        limit = request.args.get('limit', 50, type=int)
+        analytics = get_analytics()
+        questions = analytics.get_low_confidence_questions(threshold=threshold, limit=limit)
+        return jsonify({'success': True, 'questions': questions})
+    except Exception as e:
+        logger.error(f"Ошибка получения вопросов с низкой уверенностью: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/ml-analytics/export')
+@require_auth
+def export_training_data():
+    """API для экспорта данных для дообучения."""
+    try:
+        min_confidence = request.args.get('min_confidence', 0.8, type=float)
+        filename = f"ml_training_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+        analytics = get_analytics()
+        success = analytics.export_training_data(filename, min_confidence=min_confidence)
+        
+        if success:
+            return jsonify({'success': True, 'filename': filename, 'message': 'Данные экспортированы успешно'})
+        else:
+            return jsonify({'success': False, 'error': 'Ошибка экспорта данных'}), 500
+    except Exception as e:
+        logger.error(f"Ошибка экспорта данных: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/ml-analytics/categories')
+@require_auth
+def get_question_categories():
+    """API для получения распределения вопросов по категориям."""
+    try:
+        days = request.args.get('days', 30, type=int)
+        analytics = get_analytics()
+        
+        import sqlite3
+        conn = sqlite3.connect(analytics.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            SELECT question_category, COUNT(*) as count
+            FROM user_questions 
+            WHERE timestamp >= datetime('now', '-{} days')
+            GROUP BY question_category 
+            ORDER BY count DESC
+        """.format(days))
+        
+        categories = [{'category': row[0], 'count': row[1]} for row in cursor.fetchall()]
+        conn.close()
+        
+        return jsonify({'success': True, 'categories': categories})
+    except Exception as e:
+        logger.error(f"Ошибка получения категорий: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 def run_admin_panel(host='127.0.0.1', port=5000, debug=False):
     """Запуск админ-панели."""

@@ -121,6 +121,9 @@
                         <a class="nav-link" href="#documents" data-tab="documents">
                             <i class="fas fa-file-pdf"></i> Документы
                         </a>
+                        <a class="nav-link" href="#ml-analytics" data-tab="ml-analytics">
+                            <i class="fas fa-brain"></i> ML-аналитика
+                        </a>
                     </nav>
                 </div>
             </div>
@@ -403,6 +406,150 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- ML Analytics Tab -->
+                <div id="ml-analytics" class="tab-content">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2><i class="fas fa-brain"></i> ML-аналитика фильтра</h2>
+                        <button class="btn btn-outline-primary" onclick="refreshMLAnalytics()">
+                            <i class="fas fa-sync-alt"></i> Обновить
+                        </button>
+                    </div>
+
+                    <!-- Analytics Summary -->
+                    <div class="row mb-4">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-chart-line"></i> Общая статистика</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="ml-analytics-summary" class="text-muted">
+                                        <i class="fas fa-spinner fa-spin"></i> Загрузка статистики...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ML Stats Cards -->
+                    <div class="row mb-4">
+                        <div class="col-md-3">
+                            <div class="stat-card p-3 text-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-question-circle fa-2x text-primary"></i>
+                                </div>
+                                <h4 id="total-questions">-</h4>
+                                <small class="text-muted">Всего вопросов</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card p-3 text-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-check-circle fa-2x text-success"></i>
+                                </div>
+                                <h4 id="accepted-questions">-</h4>
+                                <small class="text-muted">Принято</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card p-3 text-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-times-circle fa-2x text-danger"></i>
+                                </div>
+                                <h4 id="rejected-questions">-</h4>
+                                <small class="text-muted">Отклонено</small>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="stat-card p-3 text-center">
+                                <div class="mb-2">
+                                    <i class="fas fa-percentage fa-2x text-info"></i>
+                                </div>
+                                <h4 id="accuracy-rate">-</h4>
+                                <small class="text-muted">Точность</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Charts and Details -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-chart-pie"></i> Распределение по категориям</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div id="categories-chart" style="height: 300px;">
+                                        <div class="text-center text-muted">
+                                            <i class="fas fa-spinner fa-spin"></i> Загрузка данных...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-exclamation-triangle"></i> Вопросы с низкой уверенностью</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label>Порог уверенности:</label>
+                                        <input type="range" class="form-range" id="confidence-threshold" min="0.1" max="0.9" step="0.1" value="0.7">
+                                        <span id="threshold-value">0.7</span>
+                                    </div>
+                                    <div id="low-confidence-questions" style="max-height: 250px; overflow-y: auto;">
+                                        <div class="text-center text-muted">
+                                            <i class="fas fa-spinner fa-spin"></i> Загрузка данных...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Export and Management -->
+                    <div class="row">
+                        <div class="col-md-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5><i class="fas fa-download"></i> Экспорт данных для дообучения</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label>Минимальная уверенность для экспорта:</label>
+                                                <input type="range" class="form-range" id="export-confidence" min="0.5" max="1.0" step="0.1" value="0.8">
+                                                <span id="export-confidence-value">0.8</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label>Период данных:</label>
+                                                <select class="form-select" id="export-period">
+                                                    <option value="7">Последние 7 дней</option>
+                                                    <option value="30" selected>Последние 30 дней</option>
+                                                    <option value="90">Последние 90 дней</option>
+                                                    <option value="0">Все время</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-success" onclick="exportTrainingData()">
+                                            <i class="fas fa-download"></i> Экспорт CSV
+                                        </button>
+                                        <button class="btn btn-info" onclick="refreshMLAnalytics()">
+                                            <i class="fas fa-sync-alt"></i> Обновить данные
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -519,6 +666,10 @@
                     break;
                 case 'processes':
                     refreshProcesses();
+                    break;
+                case 'ml-analytics':
+                    console.log('Загружаем ML-аналитику...');
+                    refreshMLAnalytics();
                     break;
                 default:
                     console.log('Дополнительная загрузка данных не требуется');
@@ -786,6 +937,145 @@
             return colors[status] || 'secondary';
         }
 
+        // ML Analytics Functions
+        function refreshMLAnalytics() {
+            loadMLAnalyticsSummary();
+            loadMLAnalyticsStats();
+            loadLowConfidenceQuestions();
+            loadCategoriesChart();
+        }
+
+        function loadMLAnalyticsSummary() {
+            fetch('/api/ml-analytics/summary')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const container = document.getElementById('ml-analytics-summary');
+                        container.innerHTML = `<pre style="white-space: pre-wrap;">${data.summary}</pre>`;
+                    } else {
+                        document.getElementById('ml-analytics-summary').innerHTML = 
+                            `<div class="alert alert-danger">Ошибка: ${data.error}</div>`;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('ml-analytics-summary').innerHTML = 
+                        `<div class="alert alert-danger">Ошибка загрузки: ${error.message}</div>`;
+                });
+        }
+
+        function loadMLAnalyticsStats() {
+            const days = document.getElementById('export-period')?.value || 30;
+            fetch(`/api/ml-analytics/stats?days=${days}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const stats = data.stats;
+                        const totalAll = stats.total_questions + stats.rejected_questions;
+                        const acceptanceRate = totalAll > 0 ? (stats.total_questions / totalAll * 100).toFixed(1) : 0;
+                        
+                        document.getElementById('total-questions').textContent = totalAll;
+                        document.getElementById('accepted-questions').textContent = stats.total_questions;
+                        document.getElementById('rejected-questions').textContent = stats.rejected_questions;
+                        document.getElementById('accuracy-rate').textContent = acceptanceRate + '%';
+                    } else {
+                        console.error('Ошибка загрузки статистики:', data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Ошибка загрузки статистики:', error);
+                });
+        }
+
+        function loadLowConfidenceQuestions() {
+            const threshold = document.getElementById('confidence-threshold')?.value || 0.7;
+            fetch(`/api/ml-analytics/low-confidence?threshold=${threshold}&limit=10`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const container = document.getElementById('low-confidence-questions');
+                        if (data.questions.length === 0) {
+                            container.innerHTML = '<div class="text-muted">Нет вопросов с низкой уверенностью</div>';
+                        } else {
+                            let html = '';
+                            data.questions.forEach(q => {
+                                const confidenceColor = q.ml_confidence < 0.5 ? 'danger' : 'warning';
+                                html += `
+                                    <div class="border-bottom pb-2 mb-2">
+                                        <div class="d-flex justify-content-between">
+                                            <small class="text-muted">${new Date(q.timestamp).toLocaleString()}</small>
+                                            <span class="badge bg-${confidenceColor}">${q.ml_confidence.toFixed(2)}</span>
+                                        </div>
+                                        <div class="mt-1">${q.question_text.length > 100 ? q.question_text.substring(0, 100) + '...' : q.question_text}</div>
+                                    </div>
+                                `;
+                            });
+                            container.innerHTML = html;
+                        }
+                    } else {
+                        document.getElementById('low-confidence-questions').innerHTML = 
+                            `<div class="alert alert-danger">Ошибка: ${data.error}</div>`;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('low-confidence-questions').innerHTML = 
+                        `<div class="alert alert-danger">Ошибка загрузки: ${error.message}</div>`;
+                });
+        }
+
+        function loadCategoriesChart() {
+            const days = document.getElementById('export-period')?.value || 30;
+            fetch(`/api/ml-analytics/categories?days=${days}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const container = document.getElementById('categories-chart');
+                        if (data.categories.length === 0) {
+                            container.innerHTML = '<div class="text-muted text-center">Нет данных по категориям</div>';
+                        } else {
+                            let html = '';
+                            data.categories.forEach(cat => {
+                                const percentage = (cat.count / data.categories.reduce((sum, c) => sum + c.count, 0) * 100).toFixed(1);
+                                html += `
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span>${cat.category}</span>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress me-2" style="width: 100px;">
+                                                <div class="progress-bar" style="width: ${percentage}%"></div>
+                                            </div>
+                                            <span class="badge bg-primary">${cat.count}</span>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+                            container.innerHTML = html;
+                        }
+                    } else {
+                        document.getElementById('categories-chart').innerHTML = 
+                            `<div class="alert alert-danger">Ошибка: ${data.error}</div>`;
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('categories-chart').innerHTML = 
+                        `<div class="alert alert-danger">Ошибка загрузки: ${error.message}</div>`;
+                });
+        }
+
+        function exportTrainingData() {
+            const minConfidence = document.getElementById('export-confidence').value;
+            fetch(`/api/ml-analytics/export?min_confidence=${minConfidence}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showNotification(`✅ Данные экспортированы в файл: ${data.filename}`, 'success');
+                    } else {
+                        showNotification(`❌ Ошибка экспорта: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    showNotification(`❌ Ошибка экспорта: ${error.message}`, 'error');
+                });
+        }
+
         function showNotification(message, type = 'info', duration = 5000) {
             const colors = {
                 'success': 'alert-success',
@@ -883,6 +1173,39 @@
             // Инициализация дашборда
             console.log('Инициализация дашборда...');
             refreshDashboard();
+            
+            // Инициализация ML-аналитики
+            console.log('Инициализация ML-аналитики...');
+            
+            // Event listeners для ML-аналитики
+            const confidenceThreshold = document.getElementById('confidence-threshold');
+            const thresholdValue = document.getElementById('threshold-value');
+            const exportConfidence = document.getElementById('export-confidence');
+            const exportConfidenceValue = document.getElementById('export-confidence-value');
+            const exportPeriod = document.getElementById('export-period');
+            
+            if (confidenceThreshold && thresholdValue) {
+                confidenceThreshold.addEventListener('input', function() {
+                    thresholdValue.textContent = this.value;
+                });
+                
+                confidenceThreshold.addEventListener('change', function() {
+                    loadLowConfidenceQuestions();
+                });
+            }
+            
+            if (exportConfidence && exportConfidenceValue) {
+                exportConfidence.addEventListener('input', function() {
+                    exportConfidenceValue.textContent = this.value;
+                });
+            }
+            
+            if (exportPeriod) {
+                exportPeriod.addEventListener('change', function() {
+                    loadMLAnalyticsStats();
+                    loadCategoriesChart();
+                });
+            }
             
             console.log('=== ИНИЦИАЛИЗАЦИЯ ЗАВЕРШЕНА ===');
         });
