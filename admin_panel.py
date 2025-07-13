@@ -24,6 +24,9 @@ from modules.scraping_tracker import get_scraping_tracker
 from modules.user_analytics import get_analytics
 from modules.ml_analytics_integration import get_analytics_summary
 from admin_auth import setup_auth_routes, require_auth
+from scripts.populate_db import populate_from_directory, update_document_file
+from scripts.scrape_websites import scrape_multiple_sites, get_legal_sites_list
+from scripts.update_documents import update_all_documents
 
 # Настройка логирования
 logging.basicConfig(
@@ -147,7 +150,9 @@ class AdminPanel:
                 'scrape_websites': ['python', 'scripts/scrape_websites.py'],
                 'update_documents': ['python', 'scripts/update_documents.py'],
                 'demo_bot': ['python', 'demo_bot.py'],
-                'test_demo': ['python', 'test_demo.py']
+                'test_demo': ['python', 'test_demo.py'],
+                'full_update': ['python', 'quick_update_knowledge_base.py', '--automated'],
+                'check_knowledge_base': ['python', 'check_knowledge_base.py']
             }
             
             if command not in allowed_commands:
@@ -455,6 +460,251 @@ def get_question_categories():
         return jsonify({'success': True, 'categories': categories})
     except Exception as e:
         logger.error(f"Ошибка получения категорий: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# === API для управления базой знаний ===
+
+@app.route('/api/knowledge-base/status')
+@require_auth
+def get_knowledge_base_status():
+    """Получение статуса базы знаний"""
+    try:
+        kb = get_knowledge_base()
+        stats = kb.get_collection_stats()
+        
+        # Проверка папки с документами
+        docs_dir = Path("data/documents")
+        doc_files = []
+        if docs_dir.exists():
+            doc_files = list(docs_dir.glob("*.pdf")) + list(docs_dir.glob("*.docx")) + list(docs_dir.glob("*.doc"))
+        
+        # Получение списка сайтов
+        sites = get_legal_sites_list()
+        
+        return jsonify({
+            'success': True,
+            'database': {
+                'total_documents': stats.get('total_documents', 0),
+                'db_path': stats.get('db_path', 'не указан'),
+                'collection_name': stats.get('collection_name', 'не указана')
+            },
+            'documents': {
+                'total_files': len(doc_files),
+                'files': [{'name': f.name, 'size': f.stat().st_size} for f in doc_files[:10]]
+            },
+            'sites': {
+                'total_sites': len(sites),
+                'sites': sites[:10]
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Ошибка получения статуса базы знаний: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/knowledge-base/test-search', methods=['POST'])
+@require_auth
+def test_knowledge_base_search():
+    """Тестирование поиска в базе знаний"""
+    try:
+        data = request.get_json()
+        query = data.get('query', '')
+        
+        if not query:
+            return jsonify({'success': False, 'error': 'Пустой запрос'}), 400
+        
+        kb = get_knowledge_base()
+        results = kb.search_relevant_docs(query, n_results=3)
+        
+        formatted_results = []
+        for i, doc in enumerate(results):
+            formatted_results.append({
+                'rank': i + 1,
+                'distance': doc.get('distance', 1.0),
+                'source': doc.get('metadata', {}).get('source_file', 'неизвестен'),
+                'content': doc.get('content', '')[:200] + '...' if len(doc.get('content', '')) > 200 else doc.get('content', '')
+            })
+        
+        # Проверка необходимости динамического поиска
+        should_search, _ = kb.should_use_dynamic_search(query)
+        
+        return jsonify({
+            'success': True,
+            'query': query,
+            'results': formatted_results,
+            'total_found': len(results),
+            'should_use_dynamic_search': should_search,
+            'quality_assessment': 'низкое' if should_search else 'хорошее'
+        })
+        
+    except Exception as e:
+        logger.error(f"Ошибка тестирования поиска: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/knowledge-base/update-documents', methods=['POST'])
+@require_auth
+def update_documents_endpoint():
+    """Обновление документов в базе знаний"""
+    try:
+        logger.info("Начинаем обновление документов...")
+        
+        # Запускаем в фоновом режиме
+        process_id = "update_documents"
+        admin_panel.execute_command("update_documents", process_id=process_id)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Обновление документов запущено',
+            'process_id': process_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Ошибка обновления документов: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/knowledge-base/scrape-websites', methods=['POST'])
+@require_auth
+def scrape_websites_endpoint():
+    """Скрапинг сайтов для обновления базы знаний"""
+    try:
+        data = request.get_json()
+        max_sites = data.get('max_sites', 5)
+        max_pages = data.get('max_pages', 10)
+        
+        logger.info(f"Начинаем скрапинг {max_sites} сайтов по {max_pages} страниц...")
+        
+        # Запускаем в фоновом режиме
+        process_id = "scrape_websites"
+        admin_panel.execute_command("scrape_websites", 
+                                   args={'max_sites': max_sites, 'max_pages': max_pages},
+                                   process_id=process_id)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Скрапинг запущен для {max_sites} сайтов',
+            'process_id': process_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Ошибка скрапинга сайтов: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/knowledge-base/full-update', methods=['POST'])
+@require_auth
+def full_knowledge_base_update():
+    """Полное обновление базы знаний"""
+    try:
+        logger.info("Начинаем полное обновление базы знаний...")
+        
+        # Запускаем в фоновом режиме
+        process_id = "full_update"
+        admin_panel.execute_command("full_update", process_id=process_id)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Полное обновление базы знаний запущено',
+            'process_id': process_id
+        })
+        
+    except Exception as e:
+        logger.error(f"Ошибка полного обновления: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/knowledge-base/clear', methods=['POST'])
+@require_auth
+def clear_knowledge_base():
+    """Очистка базы знаний"""
+    try:
+        data = request.get_json()
+        confirmation = data.get('confirmation', False)
+        
+        if not confirmation:
+            return jsonify({'success': False, 'error': 'Необходимо подтверждение'}), 400
+        
+        kb = get_knowledge_base()
+        success = kb.clear_collection()
+        
+        if success:
+            logger.info("База знаний очищена")
+            return jsonify({'success': True, 'message': 'База знаний очищена успешно'})
+        else:
+            return jsonify({'success': False, 'error': 'Ошибка при очистке базы знаний'}), 500
+            
+    except Exception as e:
+        logger.error(f"Ошибка очистки базы знаний: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/knowledge-base/analyze-quality')
+@require_auth
+def analyze_knowledge_base_quality():
+    """Анализ качества базы знаний"""
+    try:
+        kb = get_knowledge_base()
+        
+        # Тестовые запросы
+        test_queries = [
+            "регистрация ИП",
+            "налоговые льготы", 
+            "трудовые отношения",
+            "пенсия по возрасту",
+            "семейное право",
+            "уголовная ответственность",
+            "договор купли-продажи",
+            "права потребителей"
+        ]
+        
+        results = []
+        good_quality_count = 0
+        avg_distances = []
+        
+        for query in test_queries:
+            search_results = kb.search_relevant_docs(query, n_results=3)
+            
+            if search_results:
+                avg_distance = sum(doc.get('distance', 1.0) for doc in search_results) / len(search_results)
+                avg_distances.append(avg_distance)
+                
+                if avg_distance < 0.5:
+                    good_quality_count += 1
+                    quality = "хорошее"
+                elif avg_distance < 0.8:
+                    quality = "удовлетворительное"
+                else:
+                    quality = "низкое"
+                
+                results.append({
+                    'query': query,
+                    'quality': quality,
+                    'distance': avg_distance,
+                    'results_count': len(search_results)
+                })
+            else:
+                results.append({
+                    'query': query,
+                    'quality': "нет результатов",
+                    'distance': 1.0,
+                    'results_count': 0
+                })
+        
+        # Общая статистика
+        total_queries = len(test_queries)
+        quality_percentage = (good_quality_count / total_queries) * 100
+        overall_avg_distance = sum(avg_distances) / len(avg_distances) if avg_distances else 1.0
+        
+        return jsonify({
+            'success': True,
+            'overall_stats': {
+                'total_queries': total_queries,
+                'good_quality_count': good_quality_count,
+                'quality_percentage': quality_percentage,
+                'overall_avg_distance': overall_avg_distance,
+                'recommendation': 'отличное' if quality_percentage >= 80 else 'удовлетворительное' if quality_percentage >= 60 else 'требует улучшения'
+            },
+            'detailed_results': results
+        })
+        
+    except Exception as e:
+        logger.error(f"Ошибка анализа качества: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 def run_admin_panel(host='127.0.0.1', port=5000, debug=False):
