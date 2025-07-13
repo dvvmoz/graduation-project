@@ -427,9 +427,9 @@
                                     <h5><i class="fas fa-database"></i> Состояние базы</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div id="kb-status" class="text-muted">
-                                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
-                                    </div>
+                                                        <div id="kb-page-status" class="text-muted">
+                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
+                    </div>
                                 </div>
                             </div>
                         </div>
@@ -439,9 +439,9 @@
                                     <h5><i class="fas fa-file-alt"></i> Документы</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div id="kb-documents" class="text-muted">
-                                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
-                                    </div>
+                                                        <div id="kb-page-documents" class="text-muted">
+                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
+                    </div>
                                 </div>
                             </div>
                         </div>
@@ -451,9 +451,9 @@
                                     <h5><i class="fas fa-globe"></i> Сайты</h5>
                                 </div>
                                 <div class="card-body">
-                                    <div id="kb-sites" class="text-muted">
-                                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
-                                    </div>
+                                                        <div id="kb-page-sites" class="text-muted">
+                        <i class="fas fa-spinner fa-spin"></i> Загрузка...
+                    </div>
                                 </div>
                             </div>
                         </div>
@@ -701,6 +701,40 @@
             initializeApp();
         });
 
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        function showNotification(type, message) {
+            console.log(`[${type.toUpperCase()}] ${message}`);
+            
+            // Создаем уведомление
+            const notification = document.createElement('div');
+            notification.className = `alert alert-${type === 'error' ? 'danger' : type === 'success' ? 'success' : 'info'} alert-dismissible fade show position-fixed`;
+            notification.style.top = '20px';
+            notification.style.right = '20px';
+            notification.style.zIndex = '9999';
+            notification.style.minWidth = '300px';
+            notification.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Автоматически убираем через 5 секунд
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+        }
+
         function initializeApp() {
             // Инициализация WebSocket
             socket = io();
@@ -734,6 +768,9 @@
             // Запуск обновления данных
             refreshDashboard();
             loadLogFilesList();
+            
+            // Инициализация базы знаний
+            refreshKnowledgeBase();
             
             // Автообновление каждые 5 секунд
             statsUpdateInterval = setInterval(refreshDashboard, 5000);
@@ -803,6 +840,10 @@
                     console.log('Загружаем ML-аналитику...');
                     refreshMLAnalytics();
                     break;
+                case 'knowledge-base':
+                    console.log('Загружаем базу знаний...');
+                    refreshKnowledgeBase();
+                    break;
                 default:
                     console.log('Дополнительная загрузка данных не требуется');
             }
@@ -812,8 +853,15 @@
 
         function refreshDashboard() {
             fetch('/api/stats')
-                .then(response => response.json())
+                .then(response => {
+                    console.log('Ответ сервера /api/stats:', response.status, response.statusText);
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('=== ДАННЫЕ STATS (РАБОЧИЙ API) ===');
+                    if (data.knowledge_base) {
+                        console.log('knowledge_base из stats:', JSON.stringify(data.knowledge_base, null, 2));
+                    }
                     updateDashboard(data);
                 })
                 .catch(error => {
@@ -1348,53 +1396,115 @@
             console.log('Обновление статуса базы знаний...');
             
             // Показываем загрузку
-            document.getElementById('kb-status').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...';
-            document.getElementById('kb-documents').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...';
-            document.getElementById('kb-sites').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...';
+            document.getElementById('kb-page-status').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...';
+            document.getElementById('kb-page-documents').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...';
+            document.getElementById('kb-page-sites').innerHTML = '<i class="fas fa-spinner fa-spin"></i> Загрузка...';
             
             fetch('/api/knowledge-base/status')
-                .then(response => response.json())
+                .then(response => {
+                    console.log('Ответ сервера knowledge-base/status:', response.status, response.statusText);
+                    if (response.status === 401) {
+                        console.log('Требуется авторизация, перезагружаем страницу');
+                        window.location.reload();
+                        return;
+                    }
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
-                    console.log('Статус базы знаний:', data);
+                    if (!data) {
+                        console.log('Данные отсутствуют (после redirect)');
+                        return;
+                    }
+                    console.log('=== ПОЛУЧЕННЫЕ ДАННЫЕ ===');
+                    console.log('Статус базы знаний:', JSON.stringify(data, null, 2));
                     
+                    console.log('Проверяем data.success:', data.success);
                     if (data.success) {
+                        console.log('✅ data.success = true, обновляем элементы');
+                        
+                        // Проверяем наличие элементов DOM
+                        const kbStatus = document.getElementById('kb-page-status');
+                        const kbDocuments = document.getElementById('kb-page-documents');
+                        const kbSites = document.getElementById('kb-page-sites');
+                        
+                        console.log('DOM элементы найдены:', {
+                            'kb-status': !!kbStatus,
+                            'kb-documents': !!kbDocuments,
+                            'kb-sites': !!kbSites
+                        });
+                        
                         // Обновляем статус базы данных
-                        document.getElementById('kb-status').innerHTML = `
-                            <p><strong>Документов:</strong> ${data.database.total_documents}</p>
-                            <p><strong>Коллекция:</strong> ${data.database.collection_name}</p>
-                            <p><strong>Путь:</strong> ${data.database.db_path}</p>
-                        `;
+                        if (kbStatus) {
+                            const statusHtml = `
+                                <p><strong>Документов:</strong> ${data.database.total_documents}</p>
+                                <p><strong>Коллекция:</strong> ${data.database.collection_name}</p>
+                                <p><strong>Путь:</strong> ${data.database.db_path}</p>
+                            `;
+                            kbStatus.innerHTML = statusHtml;
+                            console.log('✅ Обновлен kb-status');
+                            console.log('Содержимое kb-status после обновления:', kbStatus.innerHTML.substring(0, 100));
+                        }
                         
                         // Обновляем информацию о документах
-                        let documentsHtml = `<p><strong>Всего файлов:</strong> ${data.documents.total_files}</p>`;
-                        if (data.documents.files.length > 0) {
-                            documentsHtml += '<ul class="list-unstyled">';
-                            data.documents.files.forEach(file => {
-                                documentsHtml += `<li><small>${file.name} (${formatBytes(file.size)})</small></li>`;
-                            });
-                            documentsHtml += '</ul>';
+                        if (kbDocuments) {
+                            let documentsHtml = `<p><strong>Всего файлов:</strong> ${data.documents.total_files}</p>`;
+                            if (data.documents.files.length > 0) {
+                                documentsHtml += '<ul class="list-unstyled">';
+                                data.documents.files.forEach(file => {
+                                    documentsHtml += `<li><small>${file.name} (${formatBytes(file.size)})</small></li>`;
+                                });
+                                documentsHtml += '</ul>';
+                            }
+                            kbDocuments.innerHTML = documentsHtml;
+                            console.log('✅ Обновлен kb-documents');
+                            console.log('Содержимое kb-documents после обновления:', kbDocuments.innerHTML.substring(0, 100));
                         }
-                        document.getElementById('kb-documents').innerHTML = documentsHtml;
                         
                         // Обновляем информацию о сайтах
-                        let sitesHtml = `<p><strong>Всего сайтов:</strong> ${data.sites.total_sites}</p>`;
-                        if (data.sites.sites.length > 0) {
-                            sitesHtml += '<ul class="list-unstyled">';
-                            data.sites.sites.forEach(site => {
-                                sitesHtml += `<li><small>${site}</small></li>`;
-                            });
-                            sitesHtml += '</ul>';
+                        if (kbSites) {
+                            let sitesHtml = `<p><strong>Всего сайтов:</strong> ${data.sites.total_sites}</p>`;
+                            if (data.sites.sites.length > 0) {
+                                sitesHtml += '<ul class="list-unstyled">';
+                                data.sites.sites.forEach(site => {
+                                    sitesHtml += `<li><small>${site}</small></li>`;
+                                });
+                                sitesHtml += '</ul>';
+                            }
+                            kbSites.innerHTML = sitesHtml;
+                            console.log('✅ Обновлен kb-sites');
+                            console.log('Содержимое kb-sites после обновления:', kbSites.innerHTML.substring(0, 100));
                         }
-                        document.getElementById('kb-sites').innerHTML = sitesHtml;
                         
-                    } else {
-                        showNotification('error', 'Ошибка получения статуса: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    console.error('Ошибка:', error);
-                    showNotification('error', 'Ошибка соединения с сервером');
-                });
+                        // Проверяем через 1 секунду, что элементы не перезаписались
+                        setTimeout(() => {
+                            console.log('=== ПРОВЕРКА ЧЕРЕЗ 1 СЕКУНДУ ===');
+                            const statusCheck = document.getElementById('kb-page-status');
+                            const docsCheck = document.getElementById('kb-page-documents');
+                            const sitesCheck = document.getElementById('kb-page-sites');
+                            
+                            console.log('kb-status через 1 сек:', statusCheck ? statusCheck.innerHTML.substring(0, 50) : 'НЕ НАЙДЕН');
+                            console.log('kb-documents через 1 сек:', docsCheck ? docsCheck.innerHTML.substring(0, 50) : 'НЕ НАЙДЕН');
+                            console.log('kb-sites через 1 сек:', sitesCheck ? sitesCheck.innerHTML.substring(0, 50) : 'НЕ НАЙДЕН');
+                        }, 1000);
+                        
+                                    } else {
+                    console.error('Ошибка получения статуса:', data.error);
+                    document.getElementById('kb-page-status').innerHTML = '<div class="alert alert-danger">Ошибка: ' + data.error + '</div>';
+                    document.getElementById('kb-page-documents').innerHTML = '<div class="alert alert-danger">Ошибка загрузки</div>';
+                    document.getElementById('kb-page-sites').innerHTML = '<div class="alert alert-danger">Ошибка загрузки</div>';
+                    showNotification('error', 'Ошибка получения статуса: ' + data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Ошибка соединения:', error);
+                document.getElementById('kb-page-status').innerHTML = '<div class="alert alert-danger">Ошибка соединения с сервером</div>';
+                document.getElementById('kb-page-documents').innerHTML = '<div class="alert alert-danger">Ошибка соединения</div>';
+                document.getElementById('kb-page-sites').innerHTML = '<div class="alert alert-danger">Ошибка соединения</div>';
+                showNotification('error', 'Ошибка соединения с сервером');
+            });
         }
 
         function updateDocuments() {

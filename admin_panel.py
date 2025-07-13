@@ -469,19 +469,24 @@ def get_question_categories():
 def get_knowledge_base_status():
     """Получение статуса базы знаний"""
     try:
+        logger.info("=== API KNOWLEDGE-BASE/STATUS ВЫЗВАН ===")
+        
         kb = get_knowledge_base()
         stats = kb.get_collection_stats()
+        logger.info(f"Статистика базы знаний: {stats}")
         
         # Проверка папки с документами
         docs_dir = Path("data/documents")
         doc_files = []
         if docs_dir.exists():
             doc_files = list(docs_dir.glob("*.pdf")) + list(docs_dir.glob("*.docx")) + list(docs_dir.glob("*.doc"))
+            logger.info(f"Найдено файлов документов: {len(doc_files)}")
         
         # Получение списка сайтов
         sites = get_legal_sites_list()
+        logger.info(f"Найдено сайтов: {len(sites)}")
         
-        return jsonify({
+        result = {
             'success': True,
             'database': {
                 'total_documents': stats.get('total_documents', 0),
@@ -496,10 +501,13 @@ def get_knowledge_base_status():
                 'total_sites': len(sites),
                 'sites': sites[:10]
             }
-        })
+        }
+        
+        logger.info(f"Возвращаем результат: {json.dumps(result, ensure_ascii=False, indent=2)}")
+        return jsonify(result)
         
     except Exception as e:
-        logger.error(f"Ошибка получения статуса базы знаний: {e}")
+        logger.error(f"Ошибка получения статуса базы знаний: {e}", exc_info=True)
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/knowledge-base/test-search', methods=['POST'])
