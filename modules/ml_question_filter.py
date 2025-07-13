@@ -64,6 +64,28 @@ class MLQuestionFilter:
             TrainingExample("Какие права у потребителя в Беларуси?", True, "стандартный"),
             TrainingExample("Как обжаловать решение административного органа?", True, "стандартный"),
             
+            # Короткие юридические вопросы (ДОБАВЛЕНО)
+            TrainingExample("открытие ип", True, "короткий"),
+            TrainingExample("регистрация ип", True, "короткий"),
+            TrainingExample("как открыть ип", True, "короткий"),
+            TrainingExample("документы для ип", True, "короткий"),
+            TrainingExample("закрытие ип", True, "короткий"),
+            TrainingExample("налоги ип", True, "короткий"),
+            TrainingExample("права ип", True, "короткий"),
+            TrainingExample("ип в беларуси", True, "короткий"),
+            TrainingExample("развод документы", True, "короткий"),
+            TrainingExample("трудовой договор", True, "короткий"),
+            TrainingExample("увольнение права", True, "короткий"),
+            TrainingExample("алименты размер", True, "короткий"),
+            TrainingExample("наследство оформить", True, "короткий"),
+            TrainingExample("штраф гаи", True, "короткий"),
+            TrainingExample("жалоба в суд", True, "короткий"),
+            TrainingExample("права потребителя", True, "короткий"),
+            TrainingExample("договор аренды", True, "короткий"),
+            TrainingExample("банкротство физлица", True, "короткий"),
+            TrainingExample("защита прав", True, "короткий"),
+            TrainingExample("иск к соседу", True, "короткий"),
+            
             # Разговорные юридические вопросы
             TrainingExample("Меня кинули с деньгами, что делать?", True, "разговорный"),
             TrainingExample("Начальник не платит зарплату уже месяц", True, "разговорный"),
@@ -146,6 +168,18 @@ class MLQuestionFilter:
             TrainingExample("Как изучить английский язык?", False, "обычное"),
             TrainingExample("Что делать при простуде?", False, "обычное"),
             
+            # Короткие неюридические вопросы (ДОБАВЛЕНО)
+            TrainingExample("приготовить еду", False, "короткий_не_юр"),
+            TrainingExample("купить телефон", False, "короткий_не_юр"),
+            TrainingExample("установить игру", False, "короткий_не_юр"),
+            TrainingExample("скачать фильм", False, "короткий_не_юр"),
+            TrainingExample("погода завтра", False, "короткий_не_юр"),
+            TrainingExample("изучить язык", False, "короткий_не_юр"),
+            TrainingExample("похудеть быстро", False, "короткий_не_юр"),
+            TrainingExample("путешествие в европу", False, "короткий_не_юр"),
+            TrainingExample("ремонт квартиры", False, "короткий_не_юр"),
+            TrainingExample("работа программист", False, "короткий_не_юр"),
+            
             # Контекстные неюридические вопросы
             TrainingExample("Как подать документы?", False, "контекстный_не_юр"),
             TrainingExample("Что мне делать?", False, "контекстный_не_юр"),
@@ -168,11 +202,18 @@ class MLQuestionFilter:
         features['has_question_mark'] = '?' in question
         features['has_exclamation'] = '!' in question
         
-        # Юридические ключевые слова
+        # Юридические ключевые слова (РАСШИРЕННЫЙ СПИСОК)
         legal_keywords = [
             'суд', 'право', 'закон', 'договор', 'иск', 'жалоба', 'нарушение',
             'ответственность', 'требование', 'обязательство', 'штраф', 'налог',
-            'трудовой', 'гражданский', 'административный', 'уголовный'
+            'трудовой', 'гражданский', 'административный', 'уголовный',
+            'ип', 'предприниматель', 'регистрация', 'открытие', 'закрытие',
+            'алименты', 'развод', 'наследство', 'завещание', 'опека',
+            'банкротство', 'долг', 'кредит', 'банк', 'страхование',
+            'недвижимость', 'аренда', 'собственность', 'земля', 'участок',
+            'увольнение', 'работа', 'зарплата', 'отпуск', 'больничный',
+            'защита', 'консультация', 'юрист', 'адвокат', 'нотариус',
+            'документы', 'справка', 'заявление', 'оформить', 'подать'
         ]
         
         features['legal_keyword_count'] = sum(1 for word in legal_keywords if word in question_lower)
@@ -197,6 +238,18 @@ class MLQuestionFilter:
         # Технические исключения
         tech_exclusions = ['программ', 'компьютер', 'интернет', 'база данных', 'excel', 'windows']
         features['tech_exclusion_count'] = sum(1 for term in tech_exclusions if term in question_lower)
+        
+        # Специальные признаки для коротких вопросов (ДОБАВЛЕНО)
+        short_legal_patterns = [
+            'ип', 'предприниматель', 'регистрация', 'открытие', 'закрытие',
+            'развод', 'алименты', 'наследство', 'завещание', 'долг', 'кредит',
+            'штраф', 'право', 'закон', 'суд', 'иск', 'жалоба', 'договор',
+            'увольнение', 'зарплата', 'отпуск', 'больничный', 'работа'
+        ]
+        features['short_legal_count'] = sum(1 for pattern in short_legal_patterns if pattern in question_lower)
+        
+        # Бонус для очень коротких юридических вопросов
+        features['short_legal_bonus'] = 1 if (features['word_count'] <= 3 and features['short_legal_count'] > 0) else 0
         
         return features
     
