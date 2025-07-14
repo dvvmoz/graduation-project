@@ -41,6 +41,96 @@
       "targets": [{"expr": "rate(response_time_seconds_sum[1m]) / rate(response_time_seconds_count[1m])", "interval": "", "legendFormat": "Среднее время отклика (сек)", "refId": "A"}],
       "title": "Время отклика бота (сек)",
       "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "id": 4,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "ml_errors_total", "interval": "", "legendFormat": "Ошибки ML-фильтра", "refId": "A"}],
+      "title": "Ошибки ML-фильтра",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "id": 5,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "rate(ml_response_time_seconds_sum[1m]) / rate(ml_response_time_seconds_count[1m])", "interval": "", "legendFormat": "Время ответа ML (сек)", "refId": "A"}],
+      "title": "Время ответа ML-фильтра (сек)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "id": 6,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "db_errors_total", "interval": "", "legendFormat": "Ошибки БД", "refId": "A"}],
+      "title": "Ошибки базы данных",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "id": 7,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "rate(db_response_time_seconds_sum[1m]) / rate(db_response_time_seconds_count[1m])", "interval": "", "legendFormat": "Время ответа БД (сек)", "refId": "A"}],
+      "title": "Время ответа базы данных (сек)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "id": 8,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "scraping_errors_total", "interval": "", "legendFormat": "Ошибки скрапинга", "refId": "A"}],
+      "title": "Ошибки скрапинга",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+      "id": 9,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "active_users_total", "interval": "", "legendFormat": "Уникальные пользователи", "refId": "A"}],
+      "title": "Уникальные пользователи за сутки",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+      "id": 10,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "100 - avg by(instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100", "interval": "", "legendFormat": "CPU usage (%)", "refId": "A"}],
+      "title": "Загрузка CPU (%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+      "id": 11,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)", "interval": "", "legendFormat": "RAM usage (%)", "refId": "A"}],
+      "title": "Использование RAM (%)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 48},
+      "id": 12,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "node_filesystem_avail_bytes{mountpoint=\"/\"} / node_filesystem_size_bytes{mountpoint=\"/\"}", "interval": "", "legendFormat": "Disk free (%)", "refId": "A"}],
+      "title": "Свободное место на диске (%)",
+      "type": "timeseries"
     }
   ],
   "refresh": "10s",

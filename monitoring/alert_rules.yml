@@ -1,0 +1,68 @@
+groups:
+- name: bot_alerts
+  rules:
+  - alert: BotDown
+    expr: up{job="bot"} == 0
+    for: 1m
+    labels:
+      severity: critical
+    annotations:
+      description: "Бот не отвечает более 1 минуты"
+
+  - alert: HighErrorRate
+    expr: increase(errors_total[5m]) > 0
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      description: "Обнаружены ошибки приложения за последние 5 минут"
+
+  - alert: HighMLResponseTime
+    expr: avg_over_time(ml_response_time_seconds[5m]) > 2
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      description: "Среднее время ответа ML-фильтра превышает 2 сек"
+
+  - alert: ScrapingErrors
+    expr: increase(scraping_errors_total[5m]) > 0
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      description: "Обнаружены ошибки скрапинга за последние 5 минут"
+
+  - alert: DBErrors
+    expr: increase(db_errors_total[5m]) > 0
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      description: "Обнаружены ошибки базы данных за последние 5 минут"
+
+  - alert: MLFilterErrors
+    expr: increase(ml_errors_total[5m]) > 0
+    for: 1m
+    labels:
+      severity: warning
+    annotations:
+      description: "Обнаружены ошибки ML-фильтра за последние 5 минут"
+
+- name: infra_alerts
+  rules:
+  - alert: LowDiskSpace
+    expr: node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"} < 0.1
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      description: "Свободное место на диске менее 10%"
+
+  - alert: HighCPUUsage
+    expr: avg(rate(node_cpu_seconds_total{mode="system"}[5m])) by (instance) > 0.8
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      description: "Загрузка CPU выше 80% в течение 5 минут" 

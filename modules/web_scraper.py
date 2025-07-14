@@ -18,6 +18,7 @@ import os
 from .text_processing import TextProcessor
 from .knowledge_base import KnowledgeBase
 from .legal_content_filter import create_legal_content_filter
+from modules.metrics import SCRAPING_ERRORS
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,7 @@ class WebScraper:
             }
             
         except Exception as e:
+            if SCRAPING_ERRORS: SCRAPING_ERRORS.inc()
             logger.error(f"Ошибка при скрапинге {url}: {e}")
             return None
     
@@ -195,37 +197,41 @@ class WebScraper:
         
         page_count = 0
         
-        while urls_to_visit and page_count < max_pages:
-            current_url = urls_to_visit.pop(0)
-            
-            if current_url in self.visited_urls:
-                continue
+        try:
+            while urls_to_visit and page_count < max_pages:
+                current_url = urls_to_visit.pop(0)
                 
-            self.visited_urls.add(current_url)
-            
-            # Скрапим текущую страницу
-            page_data = self.scrape_single_page(current_url)
-            
-            if page_data:
-                pages_data.append(page_data)
-                page_count += 1
+                if current_url in self.visited_urls:
+                    continue
                 
-                # Получаем новые ссылки для посещения
-                try:
-                    response = self.session.get(current_url, timeout=10)
-                    soup = BeautifulSoup(response.content, 'html.parser')
-                    new_links = self.get_legal_links(soup, current_url)
+                self.visited_urls.add(current_url)
+                
+                # Скрапим текущую страницу
+                page_data = self.scrape_single_page(current_url)
+                
+                if page_data:
+                    pages_data.append(page_data)
+                    page_count += 1
                     
-                    # Добавляем новые ссылки в очередь
-                    for link in new_links:
-                        if link not in self.visited_urls and link not in urls_to_visit:
-                            urls_to_visit.append(link)
-                            
-                except Exception as e:
-                    logger.error(f"Ошибка при получении ссылок с {current_url}: {e}")
-            
-            # Задержка между запросами
-            time.sleep(self.delay)
+                    # Получаем новые ссылки для посещения
+                    try:
+                        response = self.session.get(current_url, timeout=10)
+                        soup = BeautifulSoup(response.content, 'html.parser')
+                        new_links = self.get_legal_links(soup, current_url)
+                        
+                        # Добавляем новые ссылки в очередь
+                        for link in new_links:
+                            if link not in self.visited_urls and link not in urls_to_visit:
+                                urls_to_visit.append(link)
+                                
+                    except Exception as e:
+                        logger.error(f"Ошибка при получении ссылок с {current_url}: {e}")
+                
+                # Задержка между запросами
+                time.sleep(self.delay)
+        except Exception as e:
+            if SCRAPING_ERRORS: SCRAPING_ERRORS.inc()
+            logger.error(f"Ошибка при скрапинге сайта {start_url}: {e}")
         
         logger.info(f"Скрапинг завершен. Обработано страниц: {len(pages_data)}")
         return pages_data

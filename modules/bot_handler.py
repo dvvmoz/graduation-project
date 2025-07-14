@@ -18,7 +18,8 @@ from .ml_question_filter import is_legal_question_ml as is_legal_question, get_m
 from .ml_analytics_integration import create_question_context, finalize_question_context, get_analytics_summary
 
 # Импортируем метрики Prometheus из modules.metrics
-from modules.metrics import REQUESTS, ERRORS, RESPONSE_TIME
+from modules.metrics import REQUESTS, ERRORS, RESPONSE_TIME, ACTIVE_USERS
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,8 @@ class LegalBot:
         self.dp = Dispatcher()
         self._setup_handlers()
         logger.info("Бот инициализирован")
+        self._unique_users_today = set()
+        self._current_day = datetime.now().date()
     
     def _setup_handlers(self):
         """Настраивает обработчики сообщений."""
@@ -98,6 +101,15 @@ class LegalBot:
         except Exception as e:
             logger.error(f"❌ Неожиданная ошибка при установке команд: {e}")
     
+    def _check_and_update_active_users(self, user_id):
+        today = datetime.now().date()
+        if today != self._current_day:
+            self._unique_users_today.clear()
+            self._current_day = today
+        if user_id not in self._unique_users_today:
+            self._unique_users_today.add(user_id)
+            if ACTIVE_USERS: ACTIVE_USERS.inc()
+    
     async def handle_start(self, message: Message):
         """
         Обрабатывает команду /start.
@@ -105,6 +117,7 @@ class LegalBot:
         Args:
             message: Сообщение от пользователя
         """
+        self._check_and_update_active_users(message.from_user.id)
         if REQUESTS: REQUESTS.inc()
         if RESPONSE_TIME:
             with RESPONSE_TIME.time():
@@ -170,6 +183,7 @@ class LegalBot:
         Args:
             message: Сообщение от пользователя
         """
+        self._check_and_update_active_users(message.from_user.id)
         if REQUESTS: REQUESTS.inc()
         if RESPONSE_TIME:
             with RESPONSE_TIME.time():
@@ -1000,6 +1014,7 @@ pip install psutil
         Args:
             message: Сообщение от пользователя
         """
+        self._check_and_update_active_users(message.from_user.id)
         if REQUESTS:
             REQUESTS.inc()
             print("PROMETHEUS: REQUESTS.inc() called")

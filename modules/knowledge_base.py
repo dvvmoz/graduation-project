@@ -23,6 +23,7 @@ import chromadb
 from chromadb.config import Settings
 from chromadb.utils import embedding_functions
 from config import CHROMA_DB_PATH
+from modules.metrics import DB_ERRORS, DB_RESPONSE_TIME
 
 # Отключаем логирование телеметрии ChromaDB
 telemetry_logger = logging.getLogger('chromadb.telemetry')
@@ -93,9 +94,10 @@ class KnowledgeBase:
             True если документ добавлен успешно, False в противном случае
         """
         try:
-            if not document_text or not document_text.strip():
-                logger.warning(f"Пустой текст для документа {doc_id}")
-                return False
+            with DB_RESPONSE_TIME.time():
+                if not document_text or not document_text.strip():
+                    logger.warning(f"Пустой текст для документа {doc_id}")
+                    return False
             
             # Проверяем, существует ли уже документ с таким ID
             if self.document_exists(doc_id):
@@ -122,6 +124,7 @@ class KnowledgeBase:
             return True
             
         except Exception as e:
+            if DB_ERRORS: DB_ERRORS.inc()
             logger.error(f"Ошибка добавления документа {doc_id}: {e}")
             return False
     
@@ -137,9 +140,10 @@ class KnowledgeBase:
             Список найденных документов с метаданными
         """
         try:
-            if not query_text or not query_text.strip():
-                logger.warning("Пустой запрос для поиска")
-                return []
+            with DB_RESPONSE_TIME.time():
+                if not query_text or not query_text.strip():
+                    logger.warning("Пустой запрос для поиска")
+                    return []
             
             # Получаем количество документов в коллекции
             collection_count = self.collection.count()
@@ -190,6 +194,7 @@ class KnowledgeBase:
             return relevant_docs
             
         except Exception as e:
+            if DB_ERRORS: DB_ERRORS.inc()
             logger.error(f"Ошибка поиска документов: {e}")
             return []
     

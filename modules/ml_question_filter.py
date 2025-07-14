@@ -15,6 +15,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 import joblib
 import os
+from modules.metrics import ML_ERRORS, ML_RESPONSE_TIME
 
 logger = logging.getLogger(__name__)
 
@@ -364,28 +365,30 @@ class MLQuestionFilter:
             return False, 0.0, "Модель не обучена"
         
         try:
-            # Векторизуем вопрос
-            X_tfidf = self.vectorizer.transform([question])
-            
-            # Извлекаем дополнительные признаки
-            features = self._extract_features(question)
-            X_features = np.array([list(features.values())])
-            
-            # Объединяем признаки
-            X_combined = np.hstack([X_tfidf.toarray(), X_features])
-            
-            # Получаем предсказание и вероятность
-            prediction = self.classifier.predict(X_combined)[0]
-            probabilities = self.classifier.predict_proba(X_combined)[0]
-            
-            # Вероятность для класса "юридический"
-            confidence = probabilities[1] if len(probabilities) > 1 else probabilities[0]
-            
-            explanation = f"ML-предсказание: {prediction}, уверенность: {confidence:.3f}"
-            
-            return bool(prediction), float(confidence), explanation
+            with ML_RESPONSE_TIME.time():
+                # Векторизуем вопрос
+                X_tfidf = self.vectorizer.transform([question])
+                
+                # Извлекаем дополнительные признаки
+                features = self._extract_features(question)
+                X_features = np.array([list(features.values())])
+                
+                # Объединяем признаки
+                X_combined = np.hstack([X_tfidf.toarray(), X_features])
+                
+                # Получаем предсказание и вероятность
+                prediction = self.classifier.predict(X_combined)[0]
+                probabilities = self.classifier.predict_proba(X_combined)[0]
+                
+                # Вероятность для класса "юридический"
+                confidence = probabilities[1] if len(probabilities) > 1 else probabilities[0]
+                
+                explanation = f"ML-предсказание: {prediction}, уверенность: {confidence:.3f}"
+                
+                return bool(prediction), float(confidence), explanation
             
         except Exception as e:
+            if ML_ERRORS: ML_ERRORS.inc()
             logger.error(f"Ошибка в ML-фильтре: {e}")
             return False, 0.0, f"Ошибка обработки: {str(e)}"
     
