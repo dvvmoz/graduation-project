@@ -1,0 +1,82 @@
+[DEFAULT]
+# Ban IP for 1 hour
+bantime = 3600
+
+# Find IP in 10 minutes window
+findtime = 600
+
+# Ban after 5 attempts
+maxretry = 5
+
+# Email notifications
+destemail = admin@legal-bot.com
+sendername = Legal Bot Security
+mta = sendmail
+
+# Ban action
+banaction = iptables-multiport
+banaction_allports = iptables-allports
+
+# Log level
+loglevel = INFO
+logtarget = /var/log/fail2ban.log
+
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+logpath = /var/log/auth.log
+maxretry = 3
+bantime = 1800
+
+[nginx-http-auth]
+enabled = true
+port = http,https
+filter = nginx-http-auth
+logpath = /var/log/nginx/error.log
+maxretry = 3
+bantime = 3600
+
+[nginx-limit-req]
+enabled = true
+port = http,https
+filter = nginx-limit-req
+logpath = /var/log/nginx/error.log
+maxretry = 10
+findtime = 600
+bantime = 3600
+
+[nginx-botsearch]
+enabled = true
+port = http,https
+filter = nginx-botsearch
+logpath = /var/log/nginx/access.log
+maxretry = 5
+bantime = 86400
+
+[legal-bot-auth]
+enabled = true
+port = http,https
+filter = legal-bot-auth
+logpath = /app/logs/auth.log
+maxretry = 3
+findtime = 300
+bantime = 1800
+
+[legal-bot-api]
+enabled = true
+port = http,https
+filter = legal-bot-api
+logpath = /app/logs/api.log
+maxretry = 20
+findtime = 300
+bantime = 600
+
+[recidive]
+enabled = true
+filter = recidive
+logpath = /var/log/fail2ban.log
+banaction = iptables-allports
+bantime = 86400
+findtime = 86400
+maxretry = 3 

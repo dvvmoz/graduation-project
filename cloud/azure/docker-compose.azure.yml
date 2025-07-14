@@ -1,0 +1,152 @@
+version: '3.8'
+
+services:
+  legal-bot:
+    image: ${AZURE_REGISTRY_NAME}.azurecr.io/legal-bot:${IMAGE_TAG:-latest}
+    container_name: legal-bot-azure
+    restart: unless-stopped
+    environment:
+      - ENVIRONMENT=production
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - AZURE_STORAGE_ACCOUNT=${AZURE_STORAGE_ACCOUNT}
+      - AZURE_STORAGE_KEY=${AZURE_STORAGE_KEY}
+      - AZURE_CONTAINER_NAME=${AZURE_CONTAINER_NAME}
+      - AZURE_SQL_SERVER=${AZURE_SQL_SERVER}
+      - AZURE_REDIS_ENDPOINT=${AZURE_REDIS_ENDPOINT}
+    depends_on:
+      - redis
+    networks:
+      - legal-bot-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://localhost:514"
+        tag: "legal-bot-azure"
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx-azure
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.azure.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./nginx/security:/etc/nginx/security:ro
+    depends_on:
+      - legal-bot
+    networks:
+      - legal-bot-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://localhost:514"
+        tag: "nginx-azure"
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-azure
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    networks:
+      - legal-bot-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.3'
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://localhost:514"
+        tag: "redis-azure"
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus-azure
+    restart: unless-stopped
+    volumes:
+      - ./monitoring/prometheus.azure.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - legal-bot-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://localhost:514"
+        tag: "prometheus-azure"
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana-azure
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=${GRAFANA_ROOT_URL}
+      - GF_SMTP_ENABLED=true
+      - GF_SMTP_HOST=${SMTP_HOST}
+      - GF_SMTP_USER=${SMTP_USER}
+      - GF_SMTP_PASSWORD=${SMTP_PASSWORD}
+      - GF_SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - legal-bot-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.3'
+    logging:
+      driver: syslog
+      options:
+        syslog-address: "tcp://localhost:514"
+        tag: "grafana-azure"
+
+networks:
+  legal-bot-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local 

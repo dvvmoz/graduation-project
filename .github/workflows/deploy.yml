@@ -1,0 +1,253 @@
+name: Deploy Legal Bot to Production
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: legal-bot
+  ECS_SERVICE: legal-bot-service
+  ECS_CLUSTER: legal-bot-cluster
+  ECS_TASK_DEFINITION: legal-bot-task
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: legal_bot_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pytest pytest-cov pytest-asyncio
+
+    - name: Create test environment file
+      run: |
+        echo "ENVIRONMENT=test" > .env.test
+        echo "REDIS_URL=redis://localhost:6379" >> .env.test
+        echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/legal_bot_test" >> .env.test
+        echo "JWT_SECRET=test_secret_key_for_testing_only" >> .env.test
+        echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" >> .env.test
+
+    - name: Run tests
+      run: |
+        pytest tests/ -v --cov=app --cov-report=xml --cov-report=html
+      env:
+        ENVIRONMENT: test
+        REDIS_URL: redis://localhost:6379
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/legal_bot_test
+        JWT_SECRET: test_secret_key_for_testing_only
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+    - name: Security scan with Bandit
+      run: |
+        pip install bandit
+        bandit -r app/ -f json -o bandit-report.json || true
+
+    - name: Upload security scan results
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-scan-results
+        path: bandit-report.json
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    outputs:
+      image: ${{ steps.build-image.outputs.image }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+
+    - name: Build, tag, and push image to Amazon ECR
+      id: build-image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build Docker image
+        docker build -f Dockerfile.prod -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker build -f Dockerfile.prod -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+        
+        # Push image to ECR
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+        
+        echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    - name: Build and push backup image
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        IMAGE_TAG: ${{ github.sha }}
+      run: |
+        # Build backup Docker image
+        docker build -f Dockerfile.backup -t $ECR_REGISTRY/legal-bot-backup:$IMAGE_TAG .
+        docker build -f Dockerfile.backup -t $ECR_REGISTRY/legal-bot-backup:latest .
+        
+        # Push backup image to ECR
+        docker push $ECR_REGISTRY/legal-bot-backup:$IMAGE_TAG
+        docker push $ECR_REGISTRY/legal-bot-backup:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Download task definition
+      run: |
+        aws ecs describe-task-definition --task-definition $ECS_TASK_DEFINITION --query taskDefinition > task-definition.json
+
+    - name: Fill in the new image ID in the Amazon ECS task definition
+      id: task-def
+      uses: aws-actions/amazon-ecs-render-task-definition@v1
+      with:
+        task-definition: task-definition.json
+        container-name: legal-bot
+        image: ${{ needs.build-and-push.outputs.image }}
+
+    - name: Deploy Amazon ECS task definition
+      uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+      with:
+        task-definition: ${{ steps.task-def.outputs.task-definition }}
+        service: ${{ env.ECS_SERVICE }}
+        cluster: ${{ env.ECS_CLUSTER }}
+        wait-for-service-stability: true
+
+    - name: Run database migrations
+      run: |
+        # Get the task ARN of the running service
+        TASK_ARN=$(aws ecs list-tasks --cluster $ECS_CLUSTER --service-name $ECS_SERVICE --query 'taskArns[0]' --output text)
+        
+        # Run database migrations
+        aws ecs execute-command \
+          --cluster $ECS_CLUSTER \
+          --task $TASK_ARN \
+          --container legal-bot \
+          --interactive \
+          --command "python -m alembic upgrade head"
+
+    - name: Verify deployment
+      run: |
+        # Get the load balancer DNS name
+        LB_DNS=$(aws elbv2 describe-load-balancers --names legal-bot-alb --query 'LoadBalancers[0].DNSName' --output text)
+        
+        # Wait for the service to be stable
+        sleep 60
+        
+        # Test the health endpoint
+        curl -f http://$LB_DNS/health || exit 1
+        
+        echo "Deployment successful! Application is running at: http://$LB_DNS"
+
+  notify:
+    needs: [test, build-and-push, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+    - name: Notify Slack on success
+      if: success()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        text: "✅ Legal Bot deployment to production successful!"
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Notify Slack on failure
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: failure
+        text: "❌ Legal Bot deployment to production failed!"
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+    - name: Send email notification
+      if: failure()
+      uses: dawidd6/action-send-mail@v3
+      with:
+        server_address: smtp.gmail.com
+        server_port: 465
+        username: ${{ secrets.EMAIL_USERNAME }}
+        password: ${{ secrets.EMAIL_PASSWORD }}
+        subject: "Legal Bot Deployment Failed"
+        body: |
+          Deployment of Legal Bot to production has failed.
+          
+          Check the GitHub Actions logs for more details:
+          https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        to: ${{ secrets.NOTIFICATION_EMAIL }}
+        from: ${{ secrets.EMAIL_USERNAME }} 

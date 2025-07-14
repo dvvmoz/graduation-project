@@ -1,0 +1,26 @@
+FROM python:3.9-slim
+
+# Устанавливаем рабочую директорию
+WORKDIR /app
+
+# Копируем минимальные зависимости
+COPY requirements.minimal.txt .
+
+# Устанавливаем зависимости
+RUN pip install --no-cache-dir -r requirements.minimal.txt
+
+# Копируем исходный код
+COPY . .
+
+# Создаем необходимые директории
+RUN mkdir -p data db/chroma logs models
+
+# Устанавливаем переменные окружения
+ENV PYTHONPATH=/app
+ENV PYTHONUNBUFFERED=1
+
+# Открываем порт
+EXPOSE 5000
+
+# Простая команда для тестирования
+CMD ["python", "-c", "print('Контейнер запущен успешно!'); import time; time.sleep(3600)"] 

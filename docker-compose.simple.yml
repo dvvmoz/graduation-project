@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # Простая версия основного приложения
+  legal-bot-simple:
+    build:
+      context: .
+      dockerfile: Dockerfile.simple
+    container_name: legal-bot-simple
+    environment:
+      - TELEGRAM_TOKEN=test_token
+      - OPENAI_API_KEY=test_key
+      - SECRET_KEY=test_secret_key_32chars
+      - ADMIN_PASSWORD=test_admin
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data:ro
+      - simple-db-data:/app/db
+    networks:
+      - simple-network
+
+  # Redis для тестирования
+  redis-simple:
+    image: redis:7-alpine
+    container_name: redis-simple
+    ports:
+      - "6379:6379"
+    networks:
+      - simple-network
+
+networks:
+  simple-network:
+    driver: bridge
+
+volumes:
+  simple-db-data:
+    driver: local 

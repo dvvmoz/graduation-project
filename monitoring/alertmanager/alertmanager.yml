@@ -1,0 +1,216 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'legal-bot-alerts@example.com'
+  smtp_auth_username: 'legal-bot-alerts@example.com'
+  smtp_auth_password: 'secure_password'
+  slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default'
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 5s
+      repeat_interval: 5m
+    
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      repeat_interval: 30m
+    
+    - match:
+        alertname: 'HighErrorRate'
+      receiver: 'error-alerts'
+      group_wait: 5s
+      repeat_interval: 10m
+    
+    - match:
+        alertname: 'ServiceDown'
+      receiver: 'service-down-alerts'
+      group_wait: 0s
+      repeat_interval: 2m
+    
+    - match:
+        alertname: 'SecurityAlert'
+      receiver: 'security-alerts'
+      group_wait: 0s
+      repeat_interval: 5m
+
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: 'admin@legal-bot.com'
+        subject: '[Legal Bot] Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
+          {{ end }}
+    
+    slack_configs:
+      - channel: '#legal-bot-alerts'
+        title: 'Legal Bot Alert'
+        text: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          {{ end }}
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'admin@legal-bot.com,devops@legal-bot.com'
+        subject: '[CRITICAL] Legal Bot Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          🚨 CRITICAL ALERT 🚨
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Service: {{ .Labels.service }}
+          Instance: {{ .Labels.instance }}
+          
+          Labels: {{ range .Labels.SortedPairs }}{{ .Name }}={{ .Value }} {{ end }}
+          {{ end }}
+          
+          Please investigate immediately!
+    
+    slack_configs:
+      - channel: '#legal-bot-critical'
+        title: '🚨 CRITICAL: Legal Bot Alert'
+        text: |
+          {{ range .Alerts }}
+          **Alert:** {{ .Annotations.summary }}
+          **Description:** {{ .Annotations.description }}
+          **Severity:** {{ .Labels.severity }}
+          **Service:** {{ .Labels.service }}
+          **Instance:** {{ .Labels.instance }}
+          {{ end }}
+        send_resolved: true
+
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'admin@legal-bot.com'
+        subject: '[WARNING] Legal Bot Alert: {{ .GroupLabels.alertname }}'
+        body: |
+          ⚠️ WARNING ALERT ⚠️
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Severity: {{ .Labels.severity }}
+          Service: {{ .Labels.service }}
+          Instance: {{ .Labels.instance }}
+          {{ end }}
+    
+    slack_configs:
+      - channel: '#legal-bot-warnings'
+        title: '⚠️ WARNING: Legal Bot Alert'
+        text: |
+          {{ range .Alerts }}
+          **Alert:** {{ .Annotations.summary }}
+          **Description:** {{ .Annotations.description }}
+          **Service:** {{ .Labels.service }}
+          {{ end }}
+
+  - name: 'error-alerts'
+    email_configs:
+      - to: 'admin@legal-bot.com'
+        subject: '[ERROR] Legal Bot: High Error Rate'
+        body: |
+          🔴 HIGH ERROR RATE DETECTED 🔴
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Current Error Rate: {{ .Labels.error_rate }}%
+          Service: {{ .Labels.service }}
+          Instance: {{ .Labels.instance }}
+          {{ end }}
+    
+    slack_configs:
+      - channel: '#legal-bot-errors'
+        title: '🔴 HIGH ERROR RATE'
+        text: |
+          {{ range .Alerts }}
+          **Service:** {{ .Labels.service }}
+          **Error Rate:** {{ .Labels.error_rate }}%
+          **Description:** {{ .Annotations.description }}
+          {{ end }}
+
+  - name: 'service-down-alerts'
+    email_configs:
+      - to: 'admin@legal-bot.com,devops@legal-bot.com'
+        subject: '[SERVICE DOWN] Legal Bot: {{ .GroupLabels.service }}'
+        body: |
+          🔥 SERVICE DOWN 🔥
+          
+          {{ range .Alerts }}
+          Service: {{ .Labels.service }}
+          Instance: {{ .Labels.instance }}
+          Description: {{ .Annotations.description }}
+          Duration: {{ .Annotations.duration }}
+          {{ end }}
+          
+          IMMEDIATE ACTION REQUIRED!
+    
+    slack_configs:
+      - channel: '#legal-bot-critical'
+        title: '🔥 SERVICE DOWN'
+        text: |
+          {{ range .Alerts }}
+          **Service:** {{ .Labels.service }}
+          **Instance:** {{ .Labels.instance }}
+          **Description:** {{ .Annotations.description }}
+          **Duration:** {{ .Annotations.duration }}
+          {{ end }}
+        send_resolved: true
+
+  - name: 'security-alerts'
+    email_configs:
+      - to: 'security@legal-bot.com,admin@legal-bot.com'
+        subject: '[SECURITY] Legal Bot Security Alert'
+        body: |
+          🛡️ SECURITY ALERT 🛡️
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Source IP: {{ .Labels.source_ip }}
+          Attack Type: {{ .Labels.attack_type }}
+          Severity: {{ .Labels.severity }}
+          {{ end }}
+          
+          Please investigate immediately and take appropriate action.
+    
+    slack_configs:
+      - channel: '#legal-bot-security'
+        title: '🛡️ SECURITY ALERT'
+        text: |
+          {{ range .Alerts }}
+          **Alert:** {{ .Annotations.summary }}
+          **Description:** {{ .Annotations.description }}
+          **Source IP:** {{ .Labels.source_ip }}
+          **Attack Type:** {{ .Labels.attack_type }}
+          {{ end }}
+        send_resolved: true
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'service', 'instance']
+  
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match_re:
+      alertname: '.*'
+    equal: ['service', 'instance'] 

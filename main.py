@@ -1,9 +1,27 @@
 """
 Главный файл приложения - точка входа для запуска бота.
 """
+import sys
+import os
+
+# --- Проверка запуска из виртуального окружения ---
+if os.environ.get('VIRTUAL_ENV') is None or not sys.executable.lower().replace('\\', '/').endswith('/venv/scripts/python.exe'):
+    print('❌ Ошибка: Бот должен запускаться только из виртуального окружения venv!')
+    print(f'Текущий python: {sys.executable}')
+    print('Активируйте venv и запустите снова:')
+    print('  Windows:   .\\venv\\Scripts\\Activate.ps1')
+    print('  Linux/Mac: source venv/bin/activate')
+    sys.exit(1)
+# --- Конец проверки ---
+
 import logging
 import config  # Импортируем модуль, чтобы он выполнился и загрузил .env
 from modules.bot_handler import start_bot
+
+# --- PROMETHEUS METRICS ---
+from modules.metrics import REQUESTS, ERRORS, RESPONSE_TIME, ensure_metrics_server
+ensure_metrics_server(8000)
+# --- END PROMETHEUS METRICS ---
 
 def main():
     """Главная функция запуска приложения."""
@@ -27,9 +45,13 @@ def main():
     # Запускаем бота
     logging.info("СТАРТ: Запуск юридического чат-бота...")
     try:
-        start_bot()
+        # Оборачиваем запуск бота в метрику времени отклика
+        with RESPONSE_TIME.time():
+            REQUESTS.inc()
+            start_bot()
     except Exception as e:
-        logging.error(f"Ошибка при запуске бота: {e}")
+        ERRORS.inc()
+        logging.error(f"Ошибка запуска бота: {e}")
 
 if __name__ == "__main__":
     main() 

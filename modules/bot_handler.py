@@ -17,6 +17,9 @@ from .text_processing import TextProcessor
 from .ml_question_filter import is_legal_question_ml as is_legal_question, get_ml_rejection_message as get_rejection_message
 from .ml_analytics_integration import create_question_context, finalize_question_context, get_analytics_summary
 
+# Импортируем метрики Prometheus из modules.metrics
+from modules.metrics import REQUESTS, ERRORS, RESPONSE_TIME
+
 logger = logging.getLogger(__name__)
 
 class LegalBot:
@@ -102,6 +105,20 @@ class LegalBot:
         Args:
             message: Сообщение от пользователя
         """
+        if REQUESTS: REQUESTS.inc()
+        if RESPONSE_TIME:
+            with RESPONSE_TIME.time():
+                await self._handle_start_impl(message)
+        else:
+            await self._handle_start_impl(message)
+
+    async def _handle_start_impl(self, message: Message):
+        """
+        Обрабатывает команду /start.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
         welcome_text = """
 🤖 **Добро пожаловать в ЮрПомощник РБ!**
 
@@ -143,9 +160,24 @@ class LegalBot:
             await message.answer(welcome_text, parse_mode="Markdown")
             logger.info(f"Пользователь {message.from_user.id} запустил бота")
         except TelegramAPIError as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка отправки приветствия: {e}")
     
     async def handle_help(self, message: Message):
+        """
+        Обрабатывает команду /help.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        if REQUESTS: REQUESTS.inc()
+        if RESPONSE_TIME:
+            with RESPONSE_TIME.time():
+                await self._handle_help_impl(message)
+        else:
+            await self._handle_help_impl(message)
+
+    async def _handle_help_impl(self, message: Message):
         """
         Обрабатывает команду /help.
         
@@ -199,9 +231,24 @@ class LegalBot:
             await message.answer(help_text, parse_mode="Markdown")
             logger.info(f"Пользователь {message.from_user.id} запросил справку")
         except TelegramAPIError as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка отправки справки: {e}")
     
     async def handle_stats(self, message: Message):
+        """
+        Обрабатывает команду /stats.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        if REQUESTS: REQUESTS.inc()
+        if RESPONSE_TIME:
+            with RESPONSE_TIME.time():
+                await self._handle_stats_impl(message)
+        else:
+            await self._handle_stats_impl(message)
+
+    async def _handle_stats_impl(self, message: Message):
         """
         Обрабатывает команду /stats.
         
@@ -223,10 +270,25 @@ class LegalBot:
             await message.answer(stats_text)
             logger.info(f"Пользователь {message.from_user.id} запросил статистику")
         except Exception as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка получения статистики: {e}")
             await message.answer("Извините, не удалось получить статистику.")
     
     async def handle_scrape(self, message: Message):
+        """
+        Обрабатывает команду /scrape для веб-скрапинга.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        if REQUESTS: REQUESTS.inc()
+        if RESPONSE_TIME:
+            with RESPONSE_TIME.time():
+                await self._handle_scrape_impl(message)
+        else:
+            await self._handle_scrape_impl(message)
+
+    async def _handle_scrape_impl(self, message: Message):
         """
         Обрабатывает команду /scrape для веб-скрапинга.
         
@@ -309,10 +371,25 @@ class LegalBot:
         except ValueError:
             await message.answer("❌ Неверный формат количества страниц. Используйте число.")
         except Exception as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка при скрапинге: {e}")
             await message.answer("😔 Произошла ошибка при скрапинге. Попробуйте позже.")
     
     async def handle_update(self, message: Message):
+        """
+        Обрабатывает команду /update для инкрементального парсинга.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        if REQUESTS: REQUESTS.inc()
+        if RESPONSE_TIME:
+            with RESPONSE_TIME.time():
+                await self._handle_update_impl(message)
+        else:
+            await self._handle_update_impl(message)
+
+    async def _handle_update_impl(self, message: Message):
         """
         Обрабатывает команду /update для инкрементального парсинга.
         
@@ -414,10 +491,25 @@ class LegalBot:
         except ValueError:
             await message.answer("❌ Неверный формат количества страниц. Используйте число.")
         except Exception as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка при инкрементальном обновлении: {e}")
             await message.answer("😔 Произошла ошибка при обновлении. Попробуйте позже.")
     
     async def handle_dynamic(self, message: Message):
+        """
+        Обрабатывает команду /dynamic для статистики динамического поиска.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        if REQUESTS: REQUESTS.inc()
+        if RESPONSE_TIME:
+            with RESPONSE_TIME.time():
+                await self._handle_dynamic_impl(message)
+        else:
+            await self._handle_dynamic_impl(message)
+
+    async def _handle_dynamic_impl(self, message: Message):
         """
         Обрабатывает команду /dynamic для статистики динамического поиска.
         
@@ -471,10 +563,25 @@ class LegalBot:
             logger.info(f"Пользователь {message.from_user.id} запросил статистику динамического поиска")
             
         except Exception as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка получения статистики динамического поиска: {e}")
             await message.answer("😔 Произошла ошибка при получении статистики.")
     
     async def handle_admin(self, message: Message):
+        """
+        Обрабатывает команду /admin для доступа к веб-панели администратора.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        if REQUESTS: REQUESTS.inc()
+        if RESPONSE_TIME:
+            with RESPONSE_TIME.time():
+                await self._handle_admin_impl(message)
+        else:
+            await self._handle_admin_impl(message)
+
+    async def _handle_admin_impl(self, message: Message):
         """
         Обрабатывает команду /admin для доступа к веб-панели администратора.
         
@@ -528,10 +635,25 @@ class LegalBot:
             logger.info(f"Пользователь {message.from_user.id} запросил доступ к админ-панели")
             
         except Exception as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка при обработке команды /admin: {e}")
             await message.answer("😔 Произошла ошибка при обработке команды.")
     
     async def handle_analytics(self, message: Message):
+        """
+        Обрабатывает команду /analytics для получения статистики ML-фильтра.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        if REQUESTS: REQUESTS.inc()
+        if RESPONSE_TIME:
+            with RESPONSE_TIME.time():
+                await self._handle_analytics_impl(message)
+        else:
+            await self._handle_analytics_impl(message)
+
+    async def _handle_analytics_impl(self, message: Message):
         """
         Обрабатывает команду /analytics для получения статистики ML-фильтра.
         
@@ -553,10 +675,25 @@ class LegalBot:
             logger.info(f"Пользователь {message.from_user.id} запросил аналитику ML-фильтра")
             
         except Exception as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка при обработке команды /analytics: {e}")
             await message.answer("😔 Произошла ошибка при получении статистики.")
     
     async def handle_start_admin(self, message: Message):
+        """
+        Обрабатывает команду /start_admin для запуска админ-панели.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        if REQUESTS: REQUESTS.inc()
+        if RESPONSE_TIME:
+            with RESPONSE_TIME.time():
+                await self._handle_start_admin_impl(message)
+        else:
+            await self._handle_start_admin_impl(message)
+
+    async def _handle_start_admin_impl(self, message: Message):
         """
         Обрабатывает команду /start_admin для запуска админ-панели.
         
@@ -676,10 +813,25 @@ class LegalBot:
                 logger.error(f"Исключение при запуске админ-панели: {e}")
                 
         except Exception as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка при обработке команды /start_admin: {e}")
             await message.answer("😔 Произошла ошибка при обработке команды.")
     
     async def handle_stop_admin(self, message: Message):
+        """
+        Обрабатывает команду /stop_admin для остановки админ-панели.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        if REQUESTS: REQUESTS.inc()
+        if RESPONSE_TIME:
+            with RESPONSE_TIME.time():
+                await self._handle_stop_admin_impl(message)
+        else:
+            await self._handle_stop_admin_impl(message)
+
+    async def _handle_stop_admin_impl(self, message: Message):
         """
         Обрабатывает команду /stop_admin для остановки админ-панели.
         
@@ -789,6 +941,7 @@ pip install psutil
                 logger.error(f"Исключение при остановке админ-панели: {e}")
                 
         except Exception as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка при обработке команды /stop_admin: {e}")
             await message.answer("😔 Произошла ошибка при обработке команды.")
     
@@ -813,6 +966,7 @@ pip install psutil
             # Вызываем основной обработчик
             await self.handle_start_admin(message)
         except TelegramAPIError as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка отправки сообщения о команде: {e}")
     
     async def handle_deprecated_stop_admin(self, message: Message):
@@ -836,9 +990,26 @@ pip install psutil
             # Вызываем основной обработчик
             await self.handle_stop_admin(message)
         except TelegramAPIError as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка отправки сообщения о команде: {e}")
     
     async def handle_question(self, message: Message):
+        """
+        Обрабатывает вопросы пользователя.
+        
+        Args:
+            message: Сообщение от пользователя
+        """
+        if REQUESTS:
+            REQUESTS.inc()
+            print("PROMETHEUS: REQUESTS.inc() called")
+        if RESPONSE_TIME:
+            with RESPONSE_TIME.time():
+                await self._handle_question_impl(message)
+        else:
+            await self._handle_question_impl(message)
+
+    async def _handle_question_impl(self, message: Message):
         """
         Обрабатывает вопросы пользователя.
         
@@ -975,6 +1146,7 @@ pip install psutil
                             return
                         
                 except Exception as e:
+                    if ERRORS: ERRORS.inc()
                     logger.error(f"Ошибка динамического поиска: {e}")
                     
                     # Если произошла ошибка, но в базе есть документы - используем их
@@ -1025,6 +1197,7 @@ pip install psutil
                                     search_quality=search_quality, answer_source="knowledge_base")
             
         except TelegramAPIError as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка Telegram API: {e}")
             # Если ошибка парсинга, отправляем ответ без форматирования
             try:
@@ -1042,6 +1215,7 @@ pip install psutil
                 finalize_question_context(context_id, accepted=True, ml_confidence=score, ml_explanation=explanation,
                                         search_quality="error", answer_source="critical_error")
         except Exception as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Неожиданная ошибка при обработке вопроса: {e}")
             error_response = """
 😔 Произошла техническая ошибка при обработке вашего запроса.
@@ -1071,6 +1245,7 @@ pip install psutil
             await self._setup_bot_commands()
             await self.dp.start_polling(self.bot)
         except Exception as e:
+            if ERRORS: ERRORS.inc()
             logger.error(f"Ошибка при запуске polling: {e}")
             raise
     
@@ -1100,6 +1275,7 @@ def start_bot():
     except KeyboardInterrupt:
         logger.info("Получен сигнал остановки")
     except Exception as e:
+        if ERRORS: ERRORS.inc()
         logger.error(f"Критическая ошибка: {e}")
         raise
     finally:
