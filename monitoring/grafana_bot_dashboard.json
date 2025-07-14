@@ -48,9 +48,19 @@
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
       "id": 4,
       "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
-      "targets": [{"expr": "ml_errors_total", "interval": "", "legendFormat": "Ошибки ML-фильтра", "refId": "A"}],
+      "targets": [{"expr": "ml_errors_total", "interval": "15s", "legendFormat": "Ошибки ML-фильтра", "refId": "A"}],
       "title": "Ошибки ML-фильтра",
       "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "id": 13,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [{"expr": "ml_errors_total", "interval": "15s", "legendFormat": "Текущие ML ошибки", "refId": "A"}],
+      "title": "Текущие ML ошибки (Stat)",
+      "type": "stat"
     },
     {
       "datasource": "Prometheus",

@@ -7,6 +7,7 @@ from datetime import datetime
 from openai import OpenAI
 from config import OPENAI_API_KEY, DEFAULT_MODEL, MAX_TOKENS
 from .scraping_tracker import get_scraping_summary
+from modules.metrics import ML_ERRORS
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +134,7 @@ class LLMService:
             return answer
             
         except Exception as e:
+            ML_ERRORS.inc()
             logger.error(f"Ошибка при генерации ответа: {e}")
             return self._get_error_response()
     
