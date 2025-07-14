@@ -5,7 +5,12 @@ import sys
 import os
 
 # --- Проверка запуска из виртуального окружения ---
-if os.environ.get('VIRTUAL_ENV') is None or not sys.executable.lower().replace('\\', '/').endswith('/venv/scripts/python.exe'):
+venv_env = os.environ.get('VIRTUAL_ENV')
+python_path = sys.executable.lower().replace('\\', '/')
+if not venv_env or not (
+    python_path.endswith('/venv/scripts/python.exe') or  # Windows
+    '/venv/bin/python' in python_path                   # Linux/macOS
+):
     print('❌ Ошибка: Бот должен запускаться только из виртуального окружения venv!')
     print(f'Текущий python: {sys.executable}')
     print('Активируйте venv и запустите снова:')

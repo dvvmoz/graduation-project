@@ -22,4 +22,4 @@ scrape_configs:
 
   - job_name: 'bot'
     static_configs:
-      - targets: ['host.docker.internal:8000'] 
+      - targets: ['legal-assistant-bot:8000'] 

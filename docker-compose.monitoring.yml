@@ -30,6 +30,16 @@ services:
       - '9100:9100'
     restart: unless-stopped
 
+  legal-assistant-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: legal-assistant-bot
+    expose:
+      - "8000"
+    restart: unless-stopped
+    # env_file, volumes и прочее — по необходимости
+
 volumes:
   prometheus_data:
   grafana_data: 

@@ -98,7 +98,6 @@ python-dotenv==1.0.0
 python-engineio==4.12.2
 python-socketio==5.13.0
 pytz==2025.2
-pywin32==306
 PyYAML==6.0.2
 requests==2.31.0
 requests-oauthlib==2.0.0
@@ -132,3 +131,4 @@ wrapt==1.17.2
 wsproto==1.2.0
 yarl==1.20.1
 zipp==3.23.0
+prometheus_client>=0.16.0

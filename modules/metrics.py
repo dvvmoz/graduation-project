@@ -17,8 +17,8 @@ _metrics_server_started = False
 def start_metrics_server(port=8000):
     global _metrics_server_started
     if not _metrics_server_started:
-        start_http_server(port)
-        logging.info(f'Prometheus metrics endpoint доступен на :{port}/metrics')
+        start_http_server(port, addr="0.0.0.0")
+        logging.info(f'Prometheus metrics endpoint доступен на 0.0.0.0:{port}/metrics')
         _metrics_server_started = True
 
 def ensure_metrics_server(port=8000):
